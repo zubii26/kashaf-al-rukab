@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { ExtractedData } from './DocumentScannerUpload' // Keep the type here? Better define it in this file.
 
 export type ExtractedData = {
   full_name: string | null
