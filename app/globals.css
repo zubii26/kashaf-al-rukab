@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #14213D;
+  --color-accent: #2B6CB0;
+  --color-success: #1E824C;
+  --color-warning: #B7791F;
+  --color-danger: #C53030;
+  --color-background: #F7F9FC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E6EC;
+  --color-text-primary: #1F2430;
+  --color-text-secondary: #6B7280;
+
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #F7F9FC;
+  --foreground: #1F2430;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Enforce Design Principles: No animation or motion effects anywhere */
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ── Print styles ── */
+@media print {
+  @page {
+    margin: 0;
+    padding: 0;
+    size: 210mm 297mm portrait;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Each page div should be exactly A4 — no shrinking */
+  [style*="width: 210mm"] {
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
