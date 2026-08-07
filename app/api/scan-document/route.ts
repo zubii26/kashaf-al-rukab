@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system: `You are an expert AI KYC document extraction engine. You will be provided with an image of a travel document (Passport, Visa, National ID, or Saudi Iqama). 
 Your ONLY job is to extract highly accurate data and return a raw JSON object. Do NOT include markdown formatting, backticks, or any conversational text.
