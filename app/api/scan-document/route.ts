@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +11,10 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
+
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
@@ -48,7 +50,8 @@ CRITICAL RULES:
      "full_name": "String (First Last)",
      "nationality": "String (Full Standard Country Name, e.g. 'United States', 'Saudi Arabia', 'Egypt', 'Philippines')",
      "passport_number": "String or null",
-     "visa_number": "String (Iqama/Visa/Border number) or null"
+     "visa_number": "String (Iqama/Visa/Border number) or null",
+     "expiry_date": "String (YYYY-MM-DD) or null"
    }
 If a field cannot be found, set its value to null.`,
       messages: [
@@ -81,6 +84,13 @@ If a field cannot be found, set its value to null.`,
     return NextResponse.json(parsedJson)
   } catch (error: any) {
     console.error('Error scanning document:', error)
-    return NextResponse.json({ error: error.message || 'Failed to scan document' }, { status: 500 })
+    return NextResponse.json(
+      { 
+        error: error.message || 'Failed to scan document',
+        status: error.status,
+        type: error.type 
+      }, 
+      { status: error.status || 500 }
+    )
   }
 }

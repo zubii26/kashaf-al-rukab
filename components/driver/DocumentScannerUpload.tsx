@@ -7,6 +7,64 @@ export type ExtractedData = {
   nationality: string | null
   passport_number: string | null
   visa_number: string | null
+  expiry_date: string | null
+}
+
+const MAX_IMAGE_SIZE = 1024;
+
+async function resizeImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > MAX_IMAGE_SIZE || height > MAX_IMAGE_SIZE) {
+        if (width > height) {
+          height = Math.round((height * MAX_IMAGE_SIZE) / width);
+          width = MAX_IMAGE_SIZE;
+        } else {
+          width = Math.round((width * MAX_IMAGE_SIZE) / height);
+          height = MAX_IMAGE_SIZE;
+        }
+      } else {
+        // No resize needed
+        return resolve(file);
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(file);
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const resizedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          resolve(resizedFile);
+        } else {
+          resolve(file); // fallback
+        }
+      }, 'image/jpeg', 0.8);
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file); // fallback to original on error
+    };
+    
+    img.src = url;
+  });
 }
 
 interface DocumentScannerUploadProps {
@@ -37,8 +95,9 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: DocumentScannerUpl
       const file = queue[processingIndex]
       
       try {
+        const resizedFile = await resizeImage(file)
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', resizedFile)
 
         const response = await fetch('/api/scan-document', {
           method: 'POST',
