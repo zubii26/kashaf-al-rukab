@@ -51,7 +51,7 @@ export default function EditTripForm({ tripId, initialTrip, initialPassengers }:
     setPassengers(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
   }
 
-  const handleBatchScanSuccess = (data: ExtractedData, file: File) => {
+  const handleBatchScanSuccess = (data: ExtractedData) => {
     setPassengers(prev => {
       // Find the first empty passenger row
       const emptyIdx = prev.findIndex(p => !p._removed && !p.full_name && !p.passport_number)

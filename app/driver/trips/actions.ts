@@ -36,6 +36,7 @@ export async function createTripAction(formData: FormData) {
   const first_guest_nationality = formData.get('first_guest_nationality') as string
   const first_guest_id = formData.get('first_guest_id') as string
   const first_guest_contact = formData.get('first_guest_contact') as string
+  const first_guest_document_image_url = (formData.get('first_guest_document_image_url') as string) || null
   
   // Default values for fields not shown in UI
   const price = 0
@@ -84,7 +85,8 @@ export async function createTripAction(formData: FormData) {
     .insert({
       full_name: first_guest_name,
       nationality: first_guest_nationality,
-      passport_number: first_guest_id || null
+      passport_number: first_guest_id || null,
+      document_image_url: first_guest_document_image_url || null,
     })
     .select()
     .single()
@@ -112,7 +114,8 @@ export async function createTripAction(formData: FormData) {
       .insert({
         full_name: p.name,
         nationality: p.nationality || 'Unknown',
-        passport_number: p.id_number || null
+        passport_number: p.id_number || null,
+        document_image_url: (p as any).document_image_url || null,
       })
       .select()
       .single()

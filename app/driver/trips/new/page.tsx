@@ -3,20 +3,24 @@
 import { createTripAction } from '../actions'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { DocumentScannerUpload, type ExtractedData } from '@/components/driver/DocumentScannerUpload'
 
 export default function NewDriverTripPage() {
-  const [firstGuest, setFirstGuest] = useState({ name: '', nationality: '', id_number: '', contact: '' })
-  const [passengers, setPassengers] = useState<{ name: string, nationality: string, id_number: string }[]>([])
+  const [firstGuest, setFirstGuest] = useState({ name: '', nationality: '', id_number: '', contact: '', document_image_url: '' })
+  const [passengers, setPassengers] = useState<{ name: string, nationality: string, id_number: string, document_image_url: string }[]>([])
   const [tripDate, setTripDate] = useState('')
+  // Feature C: track which fields were auto-filled so we can show [Auto-filled] label
+  const [autoFilled, setAutoFilled] = useState<Set<string>>(new Set())
+  // Hide scanner after first successful extraction — keeps the form clean
+  const [scannerVisible, setScannerVisible] = useState(true)
 
   // Calculate day of week based on date
   const dayOfTrip = tripDate ? new Date(tripDate).toLocaleDateString('en-US', { weekday: 'long' }) : ''
 
   const addPassenger = () => {
     if (passengers.length < 49) {
-      setPassengers([...passengers, { name: '', nationality: '', id_number: '' }])
+      setPassengers([...passengers, { name: '', nationality: '', id_number: '', document_image_url: '' }])
     }
   }
 
@@ -32,33 +36,47 @@ export default function NewDriverTripPage() {
     const newPassengers = [...passengers]
     newPassengers[index][field] = value
     setPassengers(newPassengers)
+    // Clear auto-filled marker when user manually edits the field
+    setAutoFilled(prev => { const next = new Set(prev); next.delete(`p${index}_${field}`); return next })
   }
 
-  const handleBatchScanSuccess = (data: ExtractedData, file: File) => {
-    // If Primary Guest is mostly empty, fill it first
+  // Fix #4: Wrapped in useCallback — stable reference prevents DocumentScannerUpload's
+  // useEffect from re-firing and re-processing the same document
+  const handleBatchScanSuccess = useCallback((data: ExtractedData) => {
+    // Hide the scanner drop zone after first extraction
+    setScannerVisible(false)
     setFirstGuest(prev => {
+      // Fill primary guest first if empty
       if (!prev.name && !prev.id_number) {
+        // Feature C: mark these fields as auto-filled
+        setAutoFilled(af => new Set([...af, 'first_name', 'first_nationality', 'first_id']))
         return {
           ...prev,
           name: data.full_name || '',
           nationality: data.nationality || '',
           id_number: data.passport_number || data.visa_number || '',
+          document_image_url: data.document_image_url || '',
         }
       }
-      
-      // Otherwise add as a new passenger
-      setPassengers(currentPassengers => [
-        ...currentPassengers,
-        {
-          name: data.full_name || '',
-          nationality: data.nationality || '',
-          id_number: data.passport_number || data.visa_number || ''
-        }
-      ])
-      
+
+      // Otherwise add as additional passenger
+      setPassengers(curr => {
+        const idx = curr.length
+        // Feature C: mark new passenger fields as auto-filled
+        setAutoFilled(af => new Set([...af, `p${idx}_name`, `p${idx}_nationality`, `p${idx}_id`]))
+        return [
+          ...curr,
+          {
+            name: data.full_name || '',
+            nationality: data.nationality || '',
+            id_number: data.passport_number || data.visa_number || '',
+            document_image_url: data.document_image_url || '',
+          },
+        ]
+      })
       return prev
     })
-  }
+  }, [])
 
   const [savedTrip, setSavedTrip] = useState<{ message: string, tripId: string, tripNumber: number } | null>(null)
 
@@ -111,36 +129,45 @@ export default function NewDriverTripPage() {
           <h3 className="text-lg font-semibold text-text-secondary">Primary Guest Information</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2 text-right md:text-left">
-            <label className="text-sm font-medium text-text-secondary block">Name of the first guest</label>
+          <div className="space-y-1 text-right md:text-left">
+            <label className="text-sm font-medium text-text-secondary block">
+              Name of the first guest
+              {autoFilled.has('first_name') && <span className="ml-1 text-xs font-normal text-text-secondary">[Auto-filled — verify]</span>}
+            </label>
             <input 
               type="text" 
               name="first_guest_name"
               required 
               value={firstGuest.name}
-              onChange={e => setFirstGuest({ ...firstGuest, name: e.target.value })}
+              onChange={e => { setFirstGuest({ ...firstGuest, name: e.target.value }); setAutoFilled(af => { const n = new Set(af); n.delete('first_name'); return n }) }}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary text-right md:text-left"
             />
           </div>
-          <div className="space-y-2 text-right md:text-left">
-            <label className="text-sm font-medium text-text-secondary block">Nationality of the first guest</label>
+          <div className="space-y-1 text-right md:text-left">
+            <label className="text-sm font-medium text-text-secondary block">
+              Nationality of the first guest
+              {autoFilled.has('first_nationality') && <span className="ml-1 text-xs font-normal text-text-secondary">[Auto-filled — verify]</span>}
+            </label>
             <input 
               type="text" 
               name="first_guest_nationality"
               required 
               value={firstGuest.nationality}
-              onChange={e => setFirstGuest({ ...firstGuest, nationality: e.target.value })}
+              onChange={e => { setFirstGuest({ ...firstGuest, nationality: e.target.value }); setAutoFilled(af => { const n = new Set(af); n.delete('first_nationality'); return n }) }}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary text-right md:text-left"
             />
           </div>
-          <div className="space-y-2 text-right md:text-left">
-            <label className="text-sm font-medium text-text-secondary block">ID number of guest</label>
+          <div className="space-y-1 text-right md:text-left">
+            <label className="text-sm font-medium text-text-secondary block">
+              ID number of guest
+              {autoFilled.has('first_id') && <span className="ml-1 text-xs font-normal text-text-secondary">[Auto-filled — verify]</span>}
+            </label>
             <input 
               type="text" 
               name="first_guest_id"
               required 
               value={firstGuest.id_number}
-              onChange={e => setFirstGuest({ ...firstGuest, id_number: e.target.value })}
+              onChange={e => { setFirstGuest({ ...firstGuest, id_number: e.target.value }); setAutoFilled(af => { const n = new Set(af); n.delete('first_id'); return n }) }}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary text-right md:text-left"
             />
           </div>
@@ -233,9 +260,21 @@ export default function NewDriverTripPage() {
             Passengers data (up to 50 passengers can be added)
           </h3>
           
-          <div className="max-w-4xl mx-auto mb-8">
-            <DocumentScannerUpload onBatchScanSuccess={handleBatchScanSuccess} />
-          </div>
+          {scannerVisible ? (
+            <div className="max-w-4xl mx-auto mb-8">
+              <DocumentScannerUpload onBatchScanSuccess={handleBatchScanSuccess} />
+            </div>
+          ) : (
+            <div className="max-w-4xl mx-auto mb-4 text-right">
+              <button
+                type="button"
+                onClick={() => setScannerVisible(true)}
+                className="text-sm text-accent hover:underline"
+              >
+                + Scan another document
+              </button>
+            </div>
+          )}
           
           <div className="space-y-4 max-w-4xl mx-auto pt-4">
             {passengers.map((p, index) => (
@@ -244,27 +283,36 @@ export default function NewDriverTripPage() {
                   <span className="text-sm font-semibold text-text-secondary">Passenger {index + 2}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <input 
-                    type="text" 
-                    placeholder={`Passenger ${index + 2} Name`}
-                    value={p.name}
-                    onChange={(e) => updatePassenger(index, 'name', e.target.value)}
-                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder={`Passenger ${index + 2} Nationality`}
-                    value={p.nationality}
-                    onChange={(e) => updatePassenger(index, 'nationality', e.target.value)}
-                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder={`Passenger ${index + 2} ID/Visa Number`}
-                    value={p.id_number}
-                    onChange={(e) => updatePassenger(index, 'id_number', e.target.value)}
-                    className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <div className="space-y-1">
+                    {autoFilled.has(`p${index}_name`) && <p className="text-xs text-text-secondary">[Auto-filled — verify]</p>}
+                    <input 
+                      type="text" 
+                      placeholder={`Passenger ${index + 2} Name`}
+                      value={p.name}
+                      onChange={(e) => updatePassenger(index, 'name', e.target.value)}
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    {autoFilled.has(`p${index}_nationality`) && <p className="text-xs text-text-secondary">[Auto-filled — verify]</p>}
+                    <input 
+                      type="text" 
+                      placeholder={`Passenger ${index + 2} Nationality`}
+                      value={p.nationality}
+                      onChange={(e) => updatePassenger(index, 'nationality', e.target.value)}
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    {autoFilled.has(`p${index}_id`) && <p className="text-xs text-text-secondary">[Auto-filled — verify]</p>}
+                    <input 
+                      type="text" 
+                      placeholder={`Passenger ${index + 2} ID/Visa Number`}
+                      value={p.id_number}
+                      onChange={(e) => updatePassenger(index, 'id_number', e.target.value)}
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -291,8 +339,9 @@ export default function NewDriverTripPage() {
             </button>
           </div>
 
-          {/* Hidden field to pass extra passengers to action */}
+          {/* Hidden fields: extra passengers + primary guest document_image_url for server action */}
           <input type="hidden" name="passengers_json" value={JSON.stringify(passengers)} />
+          <input type="hidden" name="first_guest_document_image_url" value={firstGuest.document_image_url} />
         </div>
 
         {/* Form Submit Buttons */}

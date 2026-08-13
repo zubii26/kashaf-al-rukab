@@ -1,52 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useActionState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { PrimaryButton } from '@/components/ui/button'
+import { login } from './actions'
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, setIsPending] = useState(false)
-  const router = useRouter()
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setIsPending(true)
-    setError(null)
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Login failed. Please check your credentials.')
-        setIsPending(false)
-        return
-      }
-
-      // Success — redirect based on role
-      if (data.role === 'driver') {
-        router.push('/driver/trips/new')
-      } else {
-        router.push('/admin/dashboard')
-      }
-      
-      router.refresh()
-    } catch (err) {
-      setError('Network error. Please check your connection and try again.')
-      setIsPending(false)
-    }
-  }
+  const [state, formAction, isPending] = useActionState(login, null)
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-text-primary">
@@ -62,7 +22,7 @@ export default function LoginPage() {
             <CardDescription>Sign in to your account</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={formAction} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="email">Email</label>
                 <input
@@ -84,9 +44,9 @@ export default function LoginPage() {
                   className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
-              {error && (
+              {state?.error && (
                 <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                  {error}
+                  {state.error}
                 </div>
               )}
               <PrimaryButton type="submit" className="w-full mt-2" disabled={isPending}>
