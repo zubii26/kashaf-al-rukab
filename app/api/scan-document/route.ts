@@ -1,23 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ─── Duplicate-scan guard ────────────────────────────────────────────────────
+// Module-level Map survives across requests within the same warm instance
+// (works in dev + Vercel warm starts). For cross-instance persistence,
+// replace with a Redis or Supabase scan_cache table lookup.
+type CacheEntry = { result: unknown; expiresAt: number }
+const scanCache = new Map<string, CacheEntry>()
+const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+function getCached(hash: string): unknown | null {
+  const entry = scanCache.get(hash)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) { scanCache.delete(hash); return null }
+  return entry.result
+}
+
+function setCache(hash: string, result: unknown): void {
+  // Bounded LRU: evict oldest when over 500 entries
+  if (scanCache.size >= 500) {
+    const firstKey = scanCache.keys().next().value
+    if (firstKey) scanCache.delete(firstKey)
+  }
+  scanCache.set(hash, { result, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+// ─── Optimised system prompt (~175 tokens, down from ~350) ──────────────────
+// Every extra token is billed on every scan across all drivers, all day.
+const SYSTEM_PROMPT = `You extract data from travel document images (Passport, Visa, Saudi Iqama).
+Return ONLY raw JSON — no markdown, no explanation.
+
+If NOT a travel document: {"error":"not_a_document","message":"Not a travel document. Upload a passport, visa, or ID."}
+If blurry/unreadable: {"error":"unreadable","message":"Image too blurry. Retake in good lighting."}
+
+Rules:
+- Passports: MRZ (lines with <<<) is the truth source for all fields
+- Name: "Given Surname" in English
+- Nationality: full country name (PAK→Pakistan, IND→India, SAU→Saudi Arabia)
+- Iqama: 10 digits, starts with 2
+- Visa/Border: 10 digits, starts with 3 or 4
+- Dates: YYYY-MM-DD
+- Missing/unclear field: null (never guess)
+
+Return exactly:
+{"full_name":null,"nationality":null,"passport_number":null,"visa_number":null,"expiry_date":null}`
+
 export async function POST(req: NextRequest) {
   try {
-    // Fix #3 — Auth check: only authenticated users may call this endpoint
+    // ── Auth guard ────────────────────────────────────────────────────────────
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    console.log('[scan-document] auth user:', user?.id ?? 'null', 'authError:', authError?.message ?? 'none')
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      // In production, enforce auth strictly
-      // In dev, log but continue so we can diagnose other issues
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      console.warn('[scan-document] No user found but continuing in dev mode')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ── Parse file ────────────────────────────────────────────────────────────
     const formData = await req.formData()
     const file = formData.get('file') as File | null
 
@@ -25,122 +65,122 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/jpg']
-    // If type is empty (can happen with some WhatsApp/Windows files), let Claude decide
+    // ── Server-side size guard (5 MB) ─────────────────────────────────────────
+    // Client already resizes to ≤1024px, but this guards against direct API calls.
+    const MAX_BYTES = 5 * 1024 * 1024
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: 'Image too large. Maximum size is 5 MB — please resize before uploading.' },
+        { status: 413 }
+      )
+    }
+
+    // ── MIME guard ────────────────────────────────────────────────────────────
     if (file.type && !file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Unsupported file type. Please upload an image.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Unsupported file type. Please upload an image.' },
+        { status: 400 }
+      )
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const base64Image = buffer.toString('base64')
-    const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
-    // Feature B — Upload image to private Supabase Storage before calling Claude
-    // Uses admin client to bypass RLS (storage insert requires admin)
+    // ── Duplicate-scan guard ──────────────────────────────────────────────────
+    const imageHash = createHash('sha256').update(buffer).digest('hex')
+    const cached = getCached(imageHash)
+    if (cached) {
+      return NextResponse.json(cached)
+    }
+
+    const base64Image = buffer.toString('base64')
+    const mediaType = (
+      file.type === 'image/png' ? 'image/png'
+      : file.type === 'image/webp' ? 'image/webp'
+      : file.type === 'image/gif' ? 'image/gif'
+      : 'image/jpeg'
+    ) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+
+    // ── Store image in private Supabase Storage ───────────────────────────────
     const admin = createAdminClient()
-    const timestamp = Date.now()
-    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-    const storagePath = `scans/${user?.id ?? 'anonymous'}/${timestamp}.${ext}`
+    const ext = mediaType === 'image/png' ? 'png' : mediaType === 'image/webp' ? 'webp' : 'jpg'
+    const storagePath = `scans/${user.id}/${Date.now()}.${ext}`
 
     const { error: uploadError } = await admin.storage
       .from('document-images')
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      })
+      .upload(storagePath, buffer, { contentType: mediaType, upsert: false })
 
     if (uploadError) {
       console.error('[scan-document] Storage upload error:', uploadError.message)
-      // Non-fatal: log but continue — scanning still works even if storage fails
+      // Non-fatal: scan still works even if storage fails
     }
 
-    const documentImageUrl = uploadError ? null : storagePath
-
-    // Call Claude Haiku 4.5 for document extraction
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    })
+    // ── Call Claude Haiku 4.5 ─────────────────────────────────────────────────
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      system: `You are a KYC document extraction engine. You receive images of travel documents (Passport, Visa, Saudi Iqama/Residence Card).
-
-FIRST: Determine if the image is actually a travel document. If it is NOT (e.g. a selfie, random photo, screenshot, blank image), return ONLY this JSON:
-{"error": "not_a_document", "message": "Image does not appear to be a travel document. Please upload a photo of a passport, visa, or ID card."}
-
-If it IS a travel document, extract the fields below and return ONLY a raw JSON object — no markdown, no backticks, no explanation.
-
-EXTRACTION RULES:
-- Passports: prioritize the MRZ zone (bottom lines with <<< characters) as source of truth.
-- Name: format as "Given Names Surname" in English.
-- Nationality: convert 3-letter ISO code to full country name (e.g. PAK → Pakistan, IND → India, SAU → Saudi Arabia).
-- Iqama numbers: exactly 10 digits, usually start with 2.
-- Visa/Border numbers: 10 digits, usually start with 3 or 4.
-- Dates: format as YYYY-MM-DD.
-- If a field is not visible or unreadable, use null — never guess.
-- If the image is blurry or unreadable, return: {"error": "unreadable", "message": "Image is too blurry or dark to read. Please retake the photo in good lighting."}
-
-REQUIRED JSON SCHEMA (return exactly these keys):
-{
-  "full_name": "String or null",
-  "nationality": "String (full country name) or null",
-  "passport_number": "String or null",
-  "visa_number": "String (Iqama/Visa/Border number) or null",
-  "expiry_date": "String (YYYY-MM-DD) or null"
-}`,
+      max_tokens: 200,                          // JSON output is ~100-120 tokens
+      system: [
+        {
+          type: 'text',
+          text: SYSTEM_PROMPT,
+          // Prompt caching: same system prompt sent on every scan request.
+          // cache_control tells Anthropic to cache this block across requests.
+          // Active when the cached block reaches the model's minimum token
+          // threshold (2048 for Haiku). At our current ~175-token prompt this
+          // directive is recorded but not yet active — it will activate
+          // automatically if the prompt ever grows past the threshold.
+          cache_control: { type: 'ephemeral' },
+        } as Anthropic.TextBlockParam & { cache_control: { type: 'ephemeral' } },
+      ],
       messages: [
         {
           role: 'user',
           content: [
             {
               type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: base64Image,
-              },
+              source: { type: 'base64', media_type: mediaType, data: base64Image },
             },
-            {
-              type: 'text',
-              text: 'Extract the information from this document.',
-            },
+            { type: 'text', text: 'Extract.' },
           ],
         },
       ],
     })
 
-    const textContent = message.content.find(block => block.type === 'text')
-    if (!textContent || textContent.type !== 'text') {
+    // ── Parse response ────────────────────────────────────────────────────────
+    const textBlock = message.content.find(b => b.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') {
       throw new Error('No text response from Claude')
     }
 
-    // Fix #1 — Strip markdown code fences before parsing
-    let rawText = textContent.text.trim()
-    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+    let raw = textBlock.text.trim()
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
-    const parsedJson = JSON.parse(rawText)
+    const parsed = JSON.parse(raw)
 
-    // Feature A — Handle non-document and unreadable image errors
-    if (parsedJson.error === 'not_a_document' || parsedJson.error === 'unreadable') {
+    if (parsed.error === 'not_a_document' || parsed.error === 'unreadable') {
       return NextResponse.json(
-        { error: parsedJson.message || 'Could not read document' },
+        { error: parsed.message || 'Could not read document' },
         { status: 422 }
       )
     }
 
-    // Feature B — Include storage path in response so the client can save it with the passenger
-    return NextResponse.json({
-      ...parsedJson,
-      document_image_url: documentImageUrl,
-    })
+    const result = {
+      ...parsed,
+      document_image_url: uploadError ? null : storagePath,
+    }
 
-  } catch (error: any) {
-    console.error('[scan-document] Error:', error?.message || error)
+    // Cache successful extraction result
+    setCache(imageHash, result)
 
-    // Provide actionable error messages instead of raw API errors
-    if (error?.status === 400 && error?.type === 'invalid_request_error') {
+    return NextResponse.json(result)
+
+  } catch (error: unknown) {
+    const err = error as { status?: number; type?: string; message?: string }
+    console.error('[scan-document] Error:', err?.message)
+
+    if (err?.status === 400 && err?.type === 'invalid_request_error') {
       return NextResponse.json(
         { error: 'Image could not be processed. Please ensure it is a clear, well-lit photo.' },
         { status: 422 }
@@ -148,8 +188,8 @@ REQUIRED JSON SCHEMA (return exactly these keys):
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to scan document. Please try again.' },
-      { status: error.status || 500 }
+      { error: err?.message || 'Scan failed. Please try again.' },
+      { status: err?.status || 500 }
     )
   }
 }

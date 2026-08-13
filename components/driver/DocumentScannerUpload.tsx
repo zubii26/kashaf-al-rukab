@@ -11,8 +11,10 @@ export type ExtractedData = {
   document_image_url: string | null
 }
 
-// Resize image to max 1024px on long edge before sending to API (cost control)
-const MAX_SIZE = 1024
+// ─── Image resize (cost control) ─────────────────────────────────────────────
+// Caps the long edge at 1024px and re-encodes as JPEG@85% before any upload.
+// This is the single biggest lever on vision API cost — enforced on every path.
+const MAX_PX = 1024
 
 async function resizeImage(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -23,18 +25,11 @@ async function resizeImage(file: File): Promise<File> {
       URL.revokeObjectURL(url)
       let { width, height } = img
 
-      if (width <= MAX_SIZE && height <= MAX_SIZE) {
-        resolve(file)
-        return
-      }
+      // Already small enough — skip re-encoding to preserve quality
+      if (width <= MAX_PX && height <= MAX_PX) { resolve(file); return }
 
-      if (width > height) {
-        height = Math.round((height * MAX_SIZE) / width)
-        width = MAX_SIZE
-      } else {
-        width = Math.round((width * MAX_SIZE) / height)
-        height = MAX_SIZE
-      }
+      if (width > height) { height = Math.round((height * MAX_PX) / width); width = MAX_PX }
+      else { width = Math.round((width * MAX_PX) / height); height = MAX_PX }
 
       const canvas = document.createElement('canvas')
       canvas.width = width
@@ -43,7 +38,9 @@ async function resizeImage(file: File): Promise<File> {
       if (!ctx) { resolve(file); return }
       ctx.drawImage(img, 0, 0, width, height)
       canvas.toBlob(
-        (blob) => resolve(blob ? new File([blob], file.name || 'image.jpg', { type: 'image/jpeg' }) : file),
+        (blob) => resolve(blob
+          ? new File([blob], file.name || 'document.jpg', { type: 'image/jpeg' })
+          : file),
         'image/jpeg', 0.85
       )
     }
@@ -53,22 +50,62 @@ async function resizeImage(file: File): Promise<File> {
   })
 }
 
+// ─── Network retry helper ─────────────────────────────────────────────────────
+// Retries up to MAX_RETRIES times with exponential backoff (1s → 2s → 4s).
+// The resized File is kept in memory so a retry never forces a re-photo.
+const MAX_RETRIES = 3
+
+async function scanWithRetry(
+  resizedFile: File,
+  onRetryAttempt: (attempt: number, maxRetries: number) => void,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  let lastErr: unknown
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      onRetryAttempt(attempt, MAX_RETRIES)
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)))
+    }
+
+    try {
+      const fd = new FormData()
+      fd.append('file', resizedFile)
+
+      const res = await fetch('/api/scan-document', { method: 'POST', body: fd })
+      const data = await res.json()
+      return { ok: res.ok, status: res.status, data }
+    } catch (err) {
+      lastErr = err
+      // Network error (no response) — will retry
+    }
+  }
+
+  // All retries exhausted — surface the last network error
+  const msg = lastErr instanceof Error ? lastErr.message : 'Network error'
+  return { ok: false, status: 0, data: { error: msg } }
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 interface Props {
   onBatchScanSuccess: (data: ExtractedData) => void
 }
 
+type Status = 'idle' | 'processing' | 'retrying' | 'done' | 'error'
+
 export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
-  const [status, setStatus] = useState<'idle' | 'processing' | 'done' | 'error'>('idle')
+  const [status, setStatus] = useState<Status>('idle')
   const [progress, setProgress] = useState({ current: 0, total: 0 })
+  const [retryInfo, setRetryInfo] = useState({ attempt: 0, max: MAX_RETRIES })
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const processingRef = useRef(false)
   const queueRef = useRef<File[]>([])
+  const pendingFileRef = useRef<File | null>(null) // kept for manual retry
   const onSuccessRef = useRef(onBatchScanSuccess)
   useEffect(() => { onSuccessRef.current = onBatchScanSuccess }, [onBatchScanSuccess])
 
-  // ─── Core: drain the file queue one-by-one ───────────────────────────────
+  // ─── Core queue processor ────────────────────────────────────────────────
   const drainQueue = useCallback(async () => {
     if (processingRef.current || queueRef.current.length === 0) return
 
@@ -85,24 +122,33 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
       const current = total - queueRef.current.length
       setProgress({ current, total })
 
-      try {
-        const resized = await resizeImage(file)
-        const fd = new FormData()
-        fd.append('file', resized)
+      // Resize client-side before sending (cost control)
+      const resized = await resizeImage(file)
 
-        const res = await fetch('/api/scan-document', { method: 'POST', body: fd })
-        const json = await res.json()
+      // Keep the resized file in case the user manually retries
+      pendingFileRef.current = resized
 
-        if (!res.ok) {
-          setErrorMsg(json.error || `Scan failed (${res.status})`)
-          continue
-        }
+      const { ok, data } = await scanWithRetry(
+        resized,
+        (attempt, max) => {
+          setStatus('retrying')
+          setRetryInfo({ attempt, max })
+        },
+      )
 
-        onSuccessRef.current(json as ExtractedData)
-        successCount++
-      } catch (err: any) {
-        setErrorMsg(`Network error: ${err?.message ?? 'unknown'}`)
+      setStatus('processing') // restore after retry loop
+
+      const json = data as Record<string, unknown>
+
+      if (!ok) {
+        const errText = (json?.error as string) || 'Scan failed. Tap retry or try another image.'
+        setErrorMsg(errText)
+        continue
       }
+
+      onSuccessRef.current(json as ExtractedData)
+      pendingFileRef.current = null
+      successCount++
     }
 
     processingRef.current = false
@@ -116,14 +162,24 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
     drainQueue()
   }, [drainQueue])
 
-  // ─── Click to browse (creates temp input OUTSIDE the form) ───────────────
+  // ─── Manual retry (uses the already-resized file from the failed attempt) ──
+  const handleManualRetry = useCallback(() => {
+    const file = pendingFileRef.current
+    if (!file) return
+    queueRef.current = [file, ...queueRef.current]
+    processingRef.current = false
+    setErrorMsg(null)
+    drainQueue()
+  }, [drainQueue])
+
+  // ─── File picker (temp input appended to body, outside any <form>) ────────
   const openFileBrowser = useCallback(() => {
     if (processingRef.current) return
-
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
     input.accept = 'image/*'
+    input.capture = '' // removed: causes issues on Android; camera shows as option anyway
     input.style.display = 'none'
 
     input.onchange = () => {
@@ -132,7 +188,6 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
       if (files.length > 0) enqueue(files)
     }
 
-    // Handle cancel (focus returns to window without change)
     const onFocus = () => {
       setTimeout(() => {
         if (document.body.contains(input)) document.body.removeChild(input)
@@ -145,7 +200,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
     input.click()
   }, [enqueue])
 
-  // ─── Paste (Ctrl+V) ──────────────────────────────────────────────────────
+  // ─── Ctrl+V paste ────────────────────────────────────────────────────────
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const items = Array.from(e.clipboardData?.items ?? [])
@@ -168,7 +223,6 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-
     let files = Array.from(e.dataTransfer.files)
     if (files.length === 0) {
       files = Array.from(e.dataTransfer.items)
@@ -180,7 +234,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  const isProcessing = status === 'processing'
+  const isProcessing = status === 'processing' || status === 'retrying'
 
   return (
     <div
@@ -193,29 +247,45 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
           : isProcessing
             ? 'border-border bg-surface'
             : status === 'done'
-              ? 'border-success bg-surface'
+              ? 'border-green-500 bg-surface'
               : 'border-border bg-surface hover:border-accent'
       }`}
     >
-      <div className="p-8 text-center space-y-4">
-        {isProcessing ? (
+      <div className="p-6 text-center space-y-3">
+
+        {status === 'processing' && (
           <div className="space-y-1">
             <p className="text-sm font-semibold text-text-primary">
               Reading document {progress.current} of {progress.total}…
             </p>
             <p className="text-xs text-text-secondary">AI is extracting passenger details</p>
           </div>
-        ) : status === 'done' ? (
-          <p className="text-sm font-semibold text-success">
+        )}
+
+        {status === 'retrying' && (
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-text-primary">
+              Connection lost — retrying ({retryInfo.attempt}/{retryInfo.max})…
+            </p>
+            <p className="text-xs text-text-secondary">
+              Your photo is saved. No need to retake.
+            </p>
+          </div>
+        )}
+
+        {status === 'done' && (
+          <p className="text-sm font-semibold text-green-600">
             ✓ Scanned {progress.total} {progress.total === 1 ? 'document' : 'documents'} — review fields below
           </p>
-        ) : (
+        )}
+
+        {(status === 'idle' || status === 'error') && (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-text-primary">Batch Auto-Fill</p>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
-              Click the button below, drag &amp; drop, or press{' '}
+              Click the button, drag &amp; drop, or press{' '}
               <kbd className="px-1 py-0.5 bg-border rounded text-text-primary font-mono text-xs">Ctrl+V</kbd>
-              {' '}to paste a copied image.
+              {' '}to paste. The AI extracts passport/visa fields automatically.
             </p>
             <button
               type="button"
@@ -223,25 +293,40 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Select Document Image
             </button>
           </div>
         )}
 
+        {/* Error message + action buttons */}
         {errorMsg && (
-          <div className="mt-2 flex items-start justify-between gap-2 p-3 bg-surface border border-danger rounded text-left">
-            <p className="text-xs text-danger">{errorMsg}</p>
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setErrorMsg(null); setStatus('idle') }}
-              className="text-xs text-text-secondary hover:text-text-primary flex-shrink-0 font-medium"
-            >
-              Dismiss
-            </button>
+          <div className="mt-2 flex flex-col gap-2 p-3 bg-surface border border-red-300 rounded text-left">
+            <p className="text-xs text-red-600">{errorMsg}</p>
+            <div className="flex items-center gap-2">
+              {/* Retry button — reuses the already-resized image, no re-photo needed */}
+              {pendingFileRef.current && (
+                <button
+                  type="button"
+                  onClick={handleManualRetry}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Retry
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { setErrorMsg(null); setStatus('idle') }}
+                className="text-xs text-text-secondary hover:text-text-primary"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
+
       </div>
     </div>
   )
