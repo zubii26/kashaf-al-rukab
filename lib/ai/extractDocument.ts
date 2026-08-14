@@ -1,12 +1,12 @@
 // ─── AI Provider Config ──────────────────────────────────────────────────────
 // SINGLE point of change when swapping models.
-// gemini-2.5-flash-lite was retired early by Google — replaced with gemini-2.5-flash.
-export const AI_MODEL = 'gemini-2.5-flash'
+// Migrated from deprecated @google/generative-ai → @google/genai (Aug 2026).
+// gemini-2.5-flash-lite was retired early by Google; upgraded to gemini-3.1-flash-lite.
+export const AI_MODEL = 'gemini-3.1-flash-lite'
 
 // ─── System prompt (~175 tokens) ─────────────────────────────────────────────
-// Gemini context caching requires ≥32,768 tokens minimum — not worth it here.
-// The prompt caching that existed in the Claude implementation was also a no-op
-// (Claude Haiku threshold is 2,048 tokens; this prompt is ~175). Dropped cleanly.
+// temperature: 0 → deterministic extraction; no creativity needed.
+// maxOutputTokens: 200 — JSON output is typically 100–120 tokens.
 export const SYSTEM_PROMPT = `You extract data from travel document images (Passport, Visa, Saudi Iqama).
 Return ONLY raw JSON — no markdown, no explanation.
 
@@ -26,9 +26,8 @@ Return exactly:
 {"full_name":null,"nationality":null,"passport_number":null,"visa_number":null,"expiry_date":null}`
 
 // ─── Generation config ────────────────────────────────────────────────────────
-// maxOutputTokens: 200 matches the previous Claude max_tokens: 200 cap.
-// JSON output is typically 100–120 tokens.
-// temperature: 0 → deterministic; no creativity needed for structured extraction.
+// In @google/genai SDK these fields go inside the `config` object of generateContent.
+// maxOutputTokens and temperature are unchanged from the previous 2.5 integration.
 export const GENERATION_CONFIG = {
   maxOutputTokens: 200,
   temperature: 0,

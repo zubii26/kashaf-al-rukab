@@ -30,8 +30,10 @@ effects anywhere in the UI.
 - Storage: Supabase Storage (driver photos, uploaded ID/visa images, PDFs)
 - PDF generation: HTML template rendered via Puppeteer
   (use `@sparticuz/chromium` if deploying serverless)
-- AI document scanning: Claude API (vision) — extracts passenger/driver
-  fields from an uploaded document image
+- AI document scanning: Gemini API via `@google/genai` SDK (vision) — extracts passenger/driver
+  fields from an uploaded document image. Model: `gemini-3.1-flash-lite` (configured in
+  `lib/ai/extractDocument.ts` — change `AI_MODEL` there to swap models globally).
+  API key env var: `GEMINI_API_KEY`.
 
 ## Critical Rules
 1. Never modify the database schema without confirming against Section 3

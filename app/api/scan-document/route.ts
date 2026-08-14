@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -96,23 +96,33 @@ export async function POST(req: NextRequest) {
       // Non-fatal: scan still works even if storage fails
     }
 
-    // ── Call Gemini 2.5 Flash ────────────────────────────────────────────────
-    // Model name is isolated in lib/ai/extractDocument.ts — one-line swap.
-    // gemini-2.5-flash-lite was retired early by Google; now using gemini-2.5-flash.
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-    const model = genAI.getGenerativeModel({
+    // ── Call Gemini 3.1 Flash-Lite via @google/genai SDK ─────────────────────
+    // Model name + config are isolated in lib/ai/extractDocument.ts.
+    // @google/generative-ai (old SDK) was deprecated Aug 2025 and does not
+    // support Gemini 3.x models. Migrated to @google/genai (v2.17.1+).
+    // New SDK uses a flat ai.models.generateContent() call; systemInstruction
+    // and generation params live in the `config` object alongside the model.
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
+
+    const aiResult = await ai.models.generateContent({
       model: AI_MODEL,
-      systemInstruction: SYSTEM_PROMPT,
-      generationConfig: GENERATION_CONFIG,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        ...GENERATION_CONFIG,
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: base64Image } },
+            { text: 'Extract.' },
+          ],
+        },
+      ],
     })
 
-    const aiResult = await model.generateContent([
-      { inlineData: { mimeType, data: base64Image } },
-      'Extract.',
-    ])
-
     // ── Parse response ────────────────────────────────────────────────────────
-    let raw = aiResult.response.text().trim()
+    let raw = (aiResult.text ?? '').trim()
     // Strip markdown fences if the model wraps output despite instructions
     raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
