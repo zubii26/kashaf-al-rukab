@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
       // Non-fatal: scan still works even if storage fails
     }
 
-    // ── Call Gemini 2.5 Flash-Lite ───────────────────────────────────────────
-    // Model name is isolated in lib/ai/extractDocument.ts — one-line swap
-    // when gemini-2.5-flash-lite retires on 2026-10-16.
+    // ── Call Gemini 2.5 Flash ────────────────────────────────────────────────
+    // Model name is isolated in lib/ai/extractDocument.ts — one-line swap.
+    // gemini-2.5-flash-lite was retired early by Google; now using gemini-2.5-flash.
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
     const model = genAI.getGenerativeModel({
       model: AI_MODEL,

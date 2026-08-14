@@ -1,7 +1,7 @@
 // ─── AI Provider Config ──────────────────────────────────────────────────────
 // SINGLE point of change when swapping models.
-// gemini-2.5-flash-lite retires 2026-10-16 — update AI_MODEL here only.
-export const AI_MODEL = 'gemini-2.5-flash-lite'
+// gemini-2.5-flash-lite was retired early by Google — replaced with gemini-2.5-flash.
+export const AI_MODEL = 'gemini-2.5-flash'
 
 // ─── System prompt (~175 tokens) ─────────────────────────────────────────────
 // Gemini context caching requires ≥32,768 tokens minimum — not worth it here.
