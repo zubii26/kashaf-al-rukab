@@ -1,8 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/types/database'
+import { logPerf, startTimer } from '@/lib/utils/perf-logger'
 
 export async function updateSession(request: NextRequest) {
+  const totalEnd = startTimer()
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -28,9 +31,12 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Single auth call — this is the ONLY network round trip in the proxy
+  const getUserEnd = startTimer()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  logPerf('proxy.getUser', getUserEnd())
 
   const path = request.nextUrl.pathname
   const isPublic = path.startsWith('/_next') || path.startsWith('/favicon.ico') || path.startsWith('/api/') || path.startsWith('/verify/')
@@ -46,24 +52,18 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user exists, fetch role
-  let role: string | undefined
-  if (user) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    const profile = data as any
-    role = profile?.role
-  }
+  // Read role directly from JWT app_metadata — NO database query needed
+  // The custom_access_token_hook injects user_role into app_metadata on every token issue/refresh
+  const role = user?.app_metadata?.user_role as string | undefined
 
-  // If they are logged in but have no valid role, we can't let them access portals.
-  // For safety, force them to stay on login or an error page.
-  
   const isAuthRoute = path.startsWith('/login') || path === '/'
 
   if (user && role) {
+    // Set headers so downstream server components can read user info
+    // without calling getUser() again
+    supabaseResponse.headers.set('x-user-id', user.id)
+    supabaseResponse.headers.set('x-user-role', role)
+
     if (isAuthRoute) {
       // Redirect logged-in users away from auth pages to their respective portals
       const url = request.nextUrl.clone()
@@ -84,5 +84,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  logPerf('proxy.total', totalEnd())
   return supabaseResponse
 }

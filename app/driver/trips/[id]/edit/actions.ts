@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { getAuthenticatedUser } from '@/lib/utils/auth'
 
 interface PassengerPayload {
   id: string
@@ -29,8 +30,8 @@ export async function updateTripAction(payload: UpdatePayload) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  // Auth check
-  const { data: { user } } = await supabase.auth.getUser()
+  // Use cached auth — deduplicates getUser() within this request
+  const user = await getAuthenticatedUser()
   if (!user) return { success: false, error: 'Not authenticated' }
 
   const { tripId, trip, passengers } = payload

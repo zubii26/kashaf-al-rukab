@@ -2,20 +2,18 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { getAuthenticatedDriver } from '@/lib/utils/auth'
 
 export async function submitInspectionAction(formData: FormData) {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  // Use cached auth — deduplicates getUser() within this request
+  const driverAuth = await getAuthenticatedDriver()
+  if (!driverAuth) throw new Error('Not authenticated')
 
-  const { data: driver } = await supabase
-    .from('drivers')
-    .select('id, vehicle_id')
-    .eq('auth_user_id', user.id)
-    .single()
+  const driver = { id: driverAuth.driverId, vehicle_id: driverAuth.vehicleId }
 
-  if (!driver || !driver.vehicle_id) throw new Error('No vehicle assigned to driver')
+  if (!driver.vehicle_id) throw new Error('No vehicle assigned to driver')
 
   const getBool = (key: string) => formData.get(key) === 'ok'
 

@@ -4,26 +4,18 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getAuthenticatedDriver } from '@/lib/utils/auth'
 
 export async function createTripAction(formData: FormData) {
   const supabase = await createClient()
   
-  // 1. Get authenticated user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('Not authenticated')
+  // Use cached auth — deduplicates getUser() within this request
+  const driverAuth = await getAuthenticatedDriver()
+  if (!driverAuth) {
+    throw new Error('Not authenticated or driver profile not found')
   }
 
-  // 2. Get driver id
-  const { data: driver } = await supabase
-    .from('drivers')
-    .select('id, vehicle_id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!driver) {
-    throw new Error('Driver profile not found')
-  }
+  const driver = { id: driverAuth.driverId, vehicle_id: driverAuth.vehicleId }
 
   // 3. Extract form data
   const pickup_location = formData.get('pickup_location') as string
@@ -158,17 +150,12 @@ export async function deleteTripAction(formData: FormData) {
   if (!tripId) return
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
 
-  // Get the driver's ID from the drivers table (not the auth user id)
-  const { data: driver } = await supabase
-    .from('drivers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
+  // Use cached auth — deduplicates getUser() within this request
+  const driverAuth = await getAuthenticatedDriver()
+  if (!driverAuth) return
 
-  if (!driver) return
+  const driver = { id: driverAuth.driverId }
 
   // Delete only if this trip belongs to this driver
   await supabase

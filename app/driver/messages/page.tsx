@@ -1,24 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { MessageSquare, Calendar } from 'lucide-react'
+import { getAuthenticatedDriver } from '@/lib/utils/auth'
 
 export default async function DriverMessagesPage() {
   const supabase = await createClient()
 
-  // 1. Get authenticated user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return <div>Not authenticated</div>
-  }
-
-  // 2. Get the driver record corresponding to this user
-  const { data: driver } = await supabase
-    .from('drivers')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (!driver) {
+  // Use cached auth — deduplicates getUser() across proxy + this component
+  const driverAuth = await getAuthenticatedDriver()
+  if (!driverAuth) {
     return (
       <div className="p-4 space-y-6">
         <h1 className="text-2xl font-bold text-text-primary">Messages</h1>
@@ -26,6 +16,8 @@ export default async function DriverMessagesPage() {
       </div>
     )
   }
+
+  const driver = { id: driverAuth.driverId }
 
   // 3. Fetch their messages (messages directed to them, or broadcast messages where recipient_driver_id is null)
   const { data: messages } = await supabase

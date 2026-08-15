@@ -2,11 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UserSquare2, Car, Phone, Globe } from 'lucide-react'
+import { getAuthenticatedUser } from '@/lib/utils/auth'
 
 export default async function DriverAccountPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
+  // Use cached auth — deduplicates getUser() within this request
+  const user = await getAuthenticatedUser()
   if (!user) return null
 
   const { data: driver } = await supabase

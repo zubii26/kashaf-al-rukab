@@ -2,14 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import EditTripForm from './edit-form'
+import { getAuthenticatedUser } from '@/lib/utils/auth'
 
 export default async function EditTripPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const admin = createAdminClient()
   const { id } = await params
 
-  // Auth check
-  const { data: { user } } = await supabase.auth.getUser()
+  // Use cached auth — deduplicates getUser() within this request
+  const user = await getAuthenticatedUser()
   if (!user) return <div>Not authenticated</div>
 
   // Fetch trip details
