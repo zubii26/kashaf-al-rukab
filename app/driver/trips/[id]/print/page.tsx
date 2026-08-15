@@ -68,10 +68,6 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
   const partyTwo = passengers.length > 0 ? passengers[0].full_name : '—'
 
   const pageStyle: React.CSSProperties = {
-    width: '210mm',
-    minHeight: '297mm',
-    maxHeight: '297mm',
-    overflow: 'hidden',
     backgroundColor: 'white',
     position: 'relative',
     margin: '0 auto',
@@ -81,12 +77,60 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
     breakInside: 'avoid',
   }
 
+  const PrintHeader = ({ title }: { title: string }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #14213D', paddingBottom: 10 }}>
+      {/* جهة اليمين: معلومات الشركة */}
+      <div style={{ width: '150px' }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
+        <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} <br/> ترخيص: {COMPANY.licenseNumber}</div>
+      </div>
+      
+      {/* المنتصف: الشعار والعنوان */}
+      <div style={{ textAlign: 'center', flex: 1 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 50, objectFit: 'contain', maxWidth: 140, marginBottom: 8 }} />
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'inline-block', border: '2px solid #C53030', padding: '3px 28px', borderRadius: 4, background: '#F7F9FC' }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: '#C53030' }}>{title}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* جهة اليسار: صورة السائق */}
+      <div style={{ width: '150px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ textAlign: 'center' }}>
+          {driver?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={driver.photo_url} alt="السائق" style={{ width: 58, height: 58, objectFit: 'cover', border: '2px solid #14213D', borderRadius: 4 }} />
+          ) : (
+            <div style={{ width: 58, height: 58, border: '2px dashed #ccc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F9FC' }}>
+              <span style={{ fontSize: 8, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
+            </div>
+          )}
+          <div style={{ fontSize: 8, color: '#C53030', fontWeight: 700, marginTop: 2 }}>السائق</div>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-[#F7F9FC] py-6 flex flex-col items-center print:block print:bg-white print:py-0 print:m-0">
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 0; }
-          body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+          .page-wrapper {
+             width: 100% !important;
+             height: 100vh !important;
+             min-height: 0 !important;
+             max-height: none !important;
+             margin: 0 !important;
+             box-shadow: none !important;
+             page-break-after: always;
+          }
+          .page-wrapper:last-child {
+             page-break-after: auto;
+          }
         }
       `}</style>
 
@@ -99,50 +143,16 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       </div>
 
       {/* ══ صفحة 1: عقد النقل ══ */}
-      <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }} className="mb-6 print:mb-0">
-        <div style={pageStyle}>
+      <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
+        <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
           <div style={{ padding: '20px 28px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* الترويسة */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #14213D', paddingBottom: 10 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
-                <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} | ترخيص: {COMPANY.licenseNumber}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 50, objectFit: 'contain', maxWidth: 140 }} />
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ textAlign: 'center' }}>
-                  {driver?.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={driver.photo_url} alt="السائق" style={{ width: 58, height: 58, objectFit: 'cover', border: '2px solid #14213D', borderRadius: 4 }} />
-                  ) : (
-                    <div style={{ width: 58, height: 58, border: '2px dashed #ccc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F9FC' }}>
-                      <span style={{ fontSize: 8, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
-                    </div>
-                  )}
-                  <div style={{ fontSize: 8, color: '#C53030', fontWeight: 700, marginTop: 2 }}>السائق</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qrUrl} alt="QR" style={{ width: 58, height: 58, border: '2px solid #14213D', borderRadius: 4 }} />
-                  <div style={{ fontSize: 8, color: '#C53030', fontWeight: 700, marginTop: 2 }}>امسح للتحقق</div>
-                </div>
-              </div>
-            </div>
-
-            {/* عنوان العقد */}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ display: 'inline-block', border: '2px solid #C53030', padding: '3px 28px', borderRadius: 4 }}>
-                <div style={{ fontSize: 15, fontWeight: 900, color: '#C53030' }}>عقد نقل على الطرق البرية</div>
-              </div>
-            </div>
+            {/* الترويسة الموحدة */}
+            <PrintHeader title="عقد نقل على الطرق البرية" />
 
             {/* التاريخ */}
-            <div style={{ fontSize: 11 }}>
+            <div style={{ fontSize: 11, marginTop: 8 }}>
               <span style={{ fontWeight: 700, color: '#C53030' }}>التاريخ: </span>
               <span>{dateDash} — {dayAR}</span>
             </div>
@@ -175,9 +185,9 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
             {/* الختم — يظهر فقط إذا تم رفع الختم */}
             {COMPANY.stamp_url && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 100, height: 100, objectFit: 'contain' }} />
               </div>
             )}
           </div>
@@ -185,21 +195,16 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       </div>
 
       {/* ══ صفحة 2: بيانات السائق والركاب ══ */}
-      <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }} className="mb-6 print:mb-0">
-        <div style={pageStyle}>
+      <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
+        <div style={pageStyle} className="h-full">
+          <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
           <div style={{ padding: '18px 26px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* الترويسة */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #14213D', paddingBottom: 8 }}>
-              <div style={{ fontSize: 8, color: '#6B7280' }}>بسم الله الرحمن الرحيم</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#14213D' }}>{COMPANY.nameAr}</div>
-              <div style={{ display: 'inline-block', border: '2px solid #14213D', padding: '2px 20px', marginTop: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: '#14213D' }}>بيانات السائق والركاب</div>
-              </div>
-            </div>
+            {/* الترويسة الموحدة */}
+            <PrintHeader title="بيانات السائق والركاب" />
 
             {/* معلومات الرحلة */}
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
               <tbody>
                 <tr>
                   <td style={S.lcell}>رقم الرحلة</td>
@@ -221,7 +226,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </table>
 
             {/* السائق */}
-            <div>
+            <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <div style={{ width: 3, height: 16, background: '#14213D' }} />
                 <span style={{ fontWeight: 900, color: '#14213D', fontSize: 11 }}>بيانات السائق والمركبة</span>
@@ -245,7 +250,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* الركاب — فقط الركاب الحقيقيين */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 3, height: 16, background: '#14213D' }} />
@@ -279,7 +284,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* التذييل */}
-            <div style={{ borderTop: '2px solid #14213D', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ borderTop: '2px solid #14213D', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
               <div style={{ fontSize: 9, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
               <div style={{ display: 'flex', gap: 40, textAlign: 'center', alignItems: 'flex-end' }}>
                 <div>
@@ -301,19 +306,16 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       </div>
 
       {/* ══ صفحة 3: سجل الفحص اليومي ══ */}
-      <div>
-        <div style={pageStyle}>
+      <div className="page-wrapper w-[210mm] min-h-[297mm] bg-white shadow-lg print:shadow-none">
+        <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
           <div style={{ padding: '18px 28px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* الترويسة */}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#14213D' }}>{COMPANY.nameAr}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#C53030', marginTop: 2 }}>سجل الفحص اليومي للمركبة</div>
-            </div>
+            {/* الترويسة الموحدة */}
+            <PrintHeader title="سجل الفحص اليومي للمركبة" />
 
             {/* معلومات */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #14213D', paddingBottom: 8, fontSize: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #14213D', paddingBottom: 8, fontSize: 10, marginTop: 8 }}>
               <div style={{ display: 'flex', gap: 24 }}>
                 <div><div style={{ fontWeight: 700, color: '#C53030', marginBottom: 2 }}>اسم الشركة</div><div style={{ fontWeight: 600 }}>{COMPANY.nameAr}</div></div>
                 <div><div style={{ fontWeight: 700, color: '#C53030', marginBottom: 2 }}>لوحة المركبة</div><div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{vehicle?.plate_number || '—'}</div></div>
@@ -325,38 +327,40 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* جداول الفحص */}
-            {[
-              { title: 'أولاً: فحص مؤشرات لوحة القيادة', items: DASHBOARD_ITEMS },
-              { title: 'ثانياً: الفحص الخارجي', items: EXTERNAL_ITEMS },
-              { title: 'ثالثاً: أدوات ومتطلبات السلامة', items: SAFETY_ITEMS },
-            ].map((section, sIdx) => (
-              <div key={sIdx}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#C53030', marginBottom: 3 }}>{section.title}</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #14213D', background: '#F7F9FC' }}>
-                      <th style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color: '#14213D', width: '50%' }}>البند</th>
-                      <th style={{ padding: '3px 8px', textAlign: 'center', fontWeight: 700, color: '#14213D', width: '15%' }}>سليم</th>
-                      <th style={{ padding: '3px 8px', textAlign: 'center', fontWeight: 700, color: '#14213D', width: '15%' }}>غير سليم</th>
-                      <th style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color: '#14213D' }}>ملاحظات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {section.items.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #E2E6EC', background: idx % 2 === 1 ? '#F7F9FC' : 'white' }}>
-                        <td style={{ padding: '4px 8px', fontWeight: 600, color: '#1F2430' }}>{item}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#1E824C', fontWeight: 700 }}>✓</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#C53030' }}>—</td>
-                        <td style={{ padding: '4px 8px' }}></td>
+            <div style={{ flex: 1 }}>
+              {[
+                { title: 'أولاً: فحص مؤشرات لوحة القيادة', items: DASHBOARD_ITEMS },
+                { title: 'ثانياً: الفحص الخارجي', items: EXTERNAL_ITEMS },
+                { title: 'ثالثاً: أدوات ومتطلبات السلامة', items: SAFETY_ITEMS },
+              ].map((section, sIdx) => (
+                <div key={sIdx} style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#C53030', marginBottom: 3 }}>{section.title}</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #14213D', background: '#F7F9FC' }}>
+                        <th style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color: '#14213D', width: '50%' }}>البند</th>
+                        <th style={{ padding: '3px 8px', textAlign: 'center', fontWeight: 700, color: '#14213D', width: '15%' }}>سليم</th>
+                        <th style={{ padding: '3px 8px', textAlign: 'center', fontWeight: 700, color: '#14213D', width: '15%' }}>غير سليم</th>
+                        <th style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color: '#14213D' }}>ملاحظات</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    </thead>
+                    <tbody>
+                      {section.items.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #E2E6EC', background: idx % 2 === 1 ? '#F7F9FC' : 'white' }}>
+                          <td style={{ padding: '4px 8px', fontWeight: 600, color: '#1F2430' }}>{item}</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'center', color: '#1E824C', fontWeight: 700 }}>✓</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'center', color: '#C53030' }}>—</td>
+                          <td style={{ padding: '4px 8px' }}></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
 
             {/* إقرار وختم */}
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '2px solid #14213D' }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: '#1F2430', marginBottom: 12 }}>
                 إقرار السائق: أقر بأنني قمت بفحص الحافلة والتأكد من سلامتها وجاهزيتها قبل التشغيل.
               </div>
