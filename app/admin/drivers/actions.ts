@@ -9,7 +9,6 @@ export async function createDriver(formData: FormData) {
   const adminClient = createAdminClient()
   const supabase = await createClient() // For non-auth DB operations
 
-  const email = formData.get('email') as string
   const password = formData.get('password') as string
   
   const full_name = formData.get('full_name') as string
@@ -23,6 +22,19 @@ export async function createDriver(formData: FormData) {
   const new_vehicle_registration = formData.get('new_vehicle_registration') as string | null
   const new_vehicle_expiry = formData.get('new_vehicle_expiry') as string | null
   const photo_file = formData.get('photo_file') as File | null
+
+  // Auto-generate a unique internal email from the driver's name.
+  // Drivers log in with their name + password, so email is just an
+  // internal Supabase Auth identifier — never shown to the driver.
+  // A random suffix ensures uniqueness even if two drivers share a name.
+  const nameSlug = full_name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]/g, '') // strip non-ASCII (Arabic, etc.)
+    .slice(0, 30) || 'driver'
+  const uniqueSuffix = Math.random().toString(36).slice(2, 8)
+  const email = `${nameSlug}-${uniqueSuffix}@drivers.internal`
 
   // 1. Create Auth User
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
