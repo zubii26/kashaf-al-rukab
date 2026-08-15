@@ -20,11 +20,15 @@ export default async function DriverTripsPage() {
 
   const driver = { id: driverAuth.driverId }
 
+  // Only show trips from the last 4 days (older ones are auto-deleted by pg_cron)
+  const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+
   // 3. Fetch trips (with driver + vehicle — these joins work fine)
   const { data: trips } = await supabase
     .from('trips')
     .select(`*, drivers(full_name), vehicles(vehicle_type)`)
     .eq('driver_id', driver.id)
+    .gte('created_at', fourDaysAgo)
     .order('created_at', { ascending: false })
 
   // 4. TWO-STEP: Fetch all passengers for these trips separately (avoids nested RLS bug)
