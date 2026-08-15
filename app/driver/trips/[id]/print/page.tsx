@@ -20,9 +20,9 @@ const DAY_AR: Record<string, string> = {
 }
 
 const S = {
-  cell: { border: '1px solid #E2E6EC', padding: '4px 8px', fontSize: 11 } as React.CSSProperties,
-  lcell: { border: '1px solid #E2E6EC', padding: '4px 8px', fontSize: 11, fontWeight: 700, color: '#6B7280', background: '#F7F9FC' } as React.CSSProperties,
-  hcell: { border: '1px solid #14213D', padding: '4px 8px', fontSize: 11, fontWeight: 700, textAlign: 'right' as const, background: '#14213D', color: 'white' },
+  cell: { border: '1px solid #E2E6EC', padding: '3px 6px', fontSize: 13 } as React.CSSProperties,
+  lcell: { border: '1px solid #E2E6EC', padding: '3px 6px', fontSize: 13, fontWeight: 700, color: '#6B7280', background: '#F7F9FC' } as React.CSSProperties,
+  hcell: { border: '1px solid #14213D', padding: '3px 6px', fontSize: 13, fontWeight: 700, textAlign: 'right' as const, background: '#14213D', color: 'white' },
   stamp: { width: 72, height: 72, borderRadius: '50%', border: '2px dashed #14213D', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 } as React.CSSProperties,
 }
 
@@ -78,36 +78,36 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
   }
 
   const PrintHeader = ({ title }: { title: string }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #14213D', paddingBottom: 10 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #14213D', paddingBottom: 8 }}>
       {/* جهة اليمين: معلومات الشركة */}
-      <div style={{ width: '150px' }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
-        <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} <br/> ترخيص: {COMPANY.licenseNumber}</div>
+      <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ fontSize: 20, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
+        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} <br/> ترخيص: {COMPANY.licenseNumber}</div>
       </div>
       
       {/* المنتصف: الشعار والعنوان */}
-      <div style={{ textAlign: 'center', flex: 1 }}>
+      <div style={{ flex: '1.5 1 0%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 50, objectFit: 'contain', maxWidth: 140, marginBottom: 8 }} />
+        <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 60, objectFit: 'contain', maxWidth: 180, marginBottom: 8 }} />
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <div style={{ display: 'inline-block', border: '2px solid #C53030', padding: '3px 28px', borderRadius: 4, background: '#F7F9FC' }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: '#C53030' }}>{title}</div>
+          <div style={{ display: 'inline-block', border: '2px solid #C53030', padding: '2px 24px', borderRadius: 4, background: '#F7F9FC' }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#C53030' }}>{title}</div>
           </div>
         </div>
       </div>
 
       {/* جهة اليسار: صورة السائق */}
-      <div style={{ width: '150px', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ flex: '1 1 0%', display: 'flex', justifyContent: 'flex-end' }}>
         <div style={{ textAlign: 'center' }}>
           {driver?.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={driver.photo_url} alt="السائق" style={{ width: 58, height: 58, objectFit: 'cover', border: '2px solid #14213D', borderRadius: 4 }} />
+            <img src={driver.photo_url} alt="السائق" style={{ width: 60, height: 60, objectFit: 'cover', border: '2px solid #14213D', borderRadius: 4 }} />
           ) : (
-            <div style={{ width: 58, height: 58, border: '2px dashed #ccc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F9FC' }}>
-              <span style={{ fontSize: 8, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
+            <div style={{ width: 60, height: 60, border: '2px dashed #ccc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F9FC' }}>
+              <span style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
             </div>
           )}
-          <div style={{ fontSize: 8, color: '#C53030', fontWeight: 700, marginTop: 2 }}>السائق</div>
+          <div style={{ fontSize: 10, color: '#C53030', fontWeight: 700, marginTop: 2 }}>السائق</div>
         </div>
       </div>
     </div>
@@ -146,30 +146,30 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
-          <div style={{ padding: '20px 28px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
 
             {/* الترويسة الموحدة */}
             <PrintHeader title="عقد نقل على الطرق البرية" />
 
             {/* التاريخ */}
-            <div style={{ fontSize: 11, marginTop: 8 }}>
+            <div style={{ fontSize: 13, marginTop: 4 }}>
               <span style={{ fontWeight: 700, color: '#C53030' }}>التاريخ: </span>
               <span>{dateDash} — {dayAR}</span>
             </div>
 
             {/* النص القانوني */}
-            <div style={{ fontSize: 10, lineHeight: 1.75, color: '#1F2430', textAlign: 'justify' }}>{LEGAL_CLAUSE}</div>
+            <div style={{ fontSize: 11, lineHeight: 1.6, color: '#1F2430', textAlign: 'justify' }}>{LEGAL_CLAUSE}</div>
 
-            <div style={{ fontSize: 10 }}>وبناءً على ما سبق تم إبرام عقد النقل بين الأطراف الآتية:</div>
+            <div style={{ fontSize: 13 }}>وبناءً على ما سبق تم إبرام عقد النقل بين الأطراف الآتية:</div>
 
             {/* الأطراف */}
-            <div style={{ fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div><span style={{ fontWeight: 700, color: '#C53030' }}>الطرف الأول: </span><span style={{ fontWeight: 700 }}>{COMPANY.nameAr}</span></div>
               <div><span style={{ fontWeight: 700, color: '#C53030' }}>الطرف الثاني: </span><span style={{ fontWeight: 700 }}>السيد/ {partyTwo}</span></div>
             </div>
 
             {/* تفاصيل الرحلة */}
-            <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div><span style={{ fontWeight: 900 }}>النقل من: </span><span style={{ fontWeight: 700, color: '#C53030', textTransform: 'uppercase' }}>{trip.pickup_location}</span></div>
               <div><span style={{ fontWeight: 900 }}>وصولاً إلى: </span><span style={{ fontWeight: 700, color: '#C53030', textTransform: 'uppercase' }}>{trip.dropoff_location}</span></div>
               <div><span style={{ fontWeight: 900 }}>يوم: </span><span style={{ fontWeight: 700, color: '#C53030' }}>{dayAR} — {dateAR}</span></div>
@@ -177,17 +177,17 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* سياسة الإلغاء */}
-            <div style={{ fontSize: 10, lineHeight: 1.7, color: '#1F2430', textAlign: 'justify' }}>{CANCELLATION_POLICY}</div>
+            <div style={{ fontSize: 11, lineHeight: 1.6, color: '#1F2430', textAlign: 'justify' }}>{CANCELLATION_POLICY}</div>
 
-            <div style={{ fontSize: 10, color: '#1F2430' }}>
+            <div style={{ fontSize: 12, color: '#1F2430', lineHeight: 1.6 }}>
               اتفق الطرفان على أن ينفذ الطرف الأول عملية النقل للطرف الثاني مع مرافقيه من الموقع المحدد مسبقاً وتوصيلهم إلى الجهة المحددة بالعقد.
             </div>
 
             {/* الختم — يظهر فقط إذا تم رفع الختم */}
             {COMPANY.stamp_url && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 100, height: 100, objectFit: 'contain' }} />
+                <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 90, height: 90, objectFit: 'contain' }} />
               </div>
             )}
           </div>
@@ -198,13 +198,13 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
-          <div style={{ padding: '18px 26px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
             {/* الترويسة الموحدة */}
             <PrintHeader title="بيانات السائق والركاب" />
 
             {/* معلومات الرحلة */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 4 }}>
               <tbody>
                 <tr>
                   <td style={S.lcell}>رقم الرحلة</td>
@@ -226,10 +226,10 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </table>
 
             {/* السائق */}
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <div style={{ width: 3, height: 16, background: '#14213D' }} />
-                <span style={{ fontWeight: 900, color: '#14213D', fontSize: 11 }}>بيانات السائق والمركبة</span>
+                <span style={{ fontWeight: 900, color: '#14213D', fontSize: 13 }}>بيانات السائق والمركبة</span>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr>
@@ -250,13 +250,13 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* الركاب — فقط الركاب الحقيقيين */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 8 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 3, height: 16, background: '#14213D' }} />
-                  <span style={{ fontWeight: 900, color: '#14213D', fontSize: 11 }}>قائمة الركاب</span>
+                  <span style={{ fontWeight: 900, color: '#14213D', fontSize: 13 }}>قائمة الركاب</span>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '2px 8px' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '2px 8px' }}>
                   المجموع: {passengers.length}
                 </span>
               </div>
@@ -285,15 +285,15 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
             {/* التذييل */}
             <div style={{ borderTop: '2px solid #14213D', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-              <div style={{ fontSize: 9, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
+              <div style={{ fontSize: 11, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
               <div style={{ display: 'flex', gap: 40, textAlign: 'center', alignItems: 'flex-end' }}>
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#14213D', marginBottom: 20 }}>توقيع السائق</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#14213D', marginBottom: 20 }}>توقيع السائق</div>
                   <div style={{ width: 90, borderBottom: '1px solid #14213D' }} />
                 </div>
                 {COMPANY.stamp_url && (
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#14213D', marginBottom: 4 }}>الختم الرسمي</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#14213D', marginBottom: 4 }}>الختم الرسمي</div>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={COMPANY.stamp_url} alt="الختم" style={{ width: 72, height: 72, objectFit: 'contain' }} />
                   </div>
@@ -309,13 +309,13 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div className="page-wrapper w-[210mm] min-h-[297mm] bg-white shadow-lg print:shadow-none">
         <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #C53030', pointerEvents: 'none' }} />
-          <div style={{ padding: '18px 28px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
             {/* الترويسة الموحدة */}
             <PrintHeader title="سجل الفحص اليومي للمركبة" />
 
             {/* معلومات */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #14213D', paddingBottom: 8, fontSize: 10, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #14213D', paddingBottom: 8, fontSize: 12, marginTop: 4 }}>
               <div style={{ display: 'flex', gap: 24 }}>
                 <div><div style={{ fontWeight: 700, color: '#C53030', marginBottom: 2 }}>اسم الشركة</div><div style={{ fontWeight: 600 }}>{COMPANY.nameAr}</div></div>
                 <div><div style={{ fontWeight: 700, color: '#C53030', marginBottom: 2 }}>لوحة المركبة</div><div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{vehicle?.plate_number || '—'}</div></div>
@@ -334,8 +334,8 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
                 { title: 'ثالثاً: أدوات ومتطلبات السلامة', items: SAFETY_ITEMS },
               ].map((section, sIdx) => (
                 <div key={sIdx} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#C53030', marginBottom: 3 }}>{section.title}</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#C53030', marginBottom: 3 }}>{section.title}</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #14213D', background: '#F7F9FC' }}>
                         <th style={{ padding: '3px 8px', textAlign: 'right', fontWeight: 700, color: '#14213D', width: '50%' }}>البند</th>
@@ -361,7 +361,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
             {/* إقرار وختم */}
             <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '2px solid #14213D' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#1F2430', marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2430', marginBottom: 12 }}>
                 إقرار السائق: أقر بأنني قمت بفحص الحافلة والتأكد من سلامتها وجاهزيتها قبل التشغيل.
               </div>
               {COMPANY.stamp_url && (
