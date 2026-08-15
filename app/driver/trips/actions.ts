@@ -71,72 +71,58 @@ export async function createTripAction(formData: FormData) {
 
   const admin = createAdminClient()
 
-  // 5. Insert First Guest as a Passenger (using admin client to bypass RLS)
-  const { data: firstGuest, error: firstGuestError } = await admin
-    .from('passengers')
-    .insert({
+  // ── Build all passengers list (first guest + extra) ──────────────────────
+  const allPassengers = [
+    {
       full_name: first_guest_name,
       nationality: first_guest_nationality,
       passport_number: first_guest_id || null,
       document_image_url: first_guest_document_image_url || null,
-    })
-    .select()
-    .single()
-
-  console.log('[createTripAction] firstGuest insert:', { firstGuest, error: firstGuestError?.message })
-
-  if (firstGuest) {
-    const { error: linkError } = await admin
-      .from('trip_passengers')
-      .insert({
-        trip_id: newTrip.id,
-        passenger_id: firstGuest.id,
-        seq_number: 1
-      })
-    console.log('[createTripAction] trip_passengers link error:', linkError?.message)
-  }
-
-  // 6. Insert Extra Passengers and link them
-  for (let i = 0; i < extraPassengers.length; i++) {
-    const p = extraPassengers[i]
-    if (!p.name) continue
-    
-    const { data: newPassenger, error: extraError } = await admin
-      .from('passengers')
-      .insert({
+    },
+    ...extraPassengers
+      .filter((p) => !!p.name)
+      .map((p) => ({
         full_name: p.name,
         nationality: p.nationality || 'Unknown',
         passport_number: p.id_number || null,
         document_image_url: (p as any).document_image_url || null,
-      })
-      .select()
-      .single()
+      })),
+  ]
 
-    console.log(`[createTripAction] extra passenger ${i}:`, { newPassenger, error: extraError?.message })
-      
-    if (newPassenger) {
-      const { error: extraLinkError } = await admin
-        .from('trip_passengers')
-        .insert({
-          trip_id: newTrip.id,
-          passenger_id: newPassenger.id,
-          seq_number: i + 2
-        })
-      console.log(`[createTripAction] extra link ${i} error:`, extraLinkError?.message)
+  // ── Bulk insert ALL passengers in ONE call ────────────────────────────────
+  const { data: insertedPassengers, error: passError } = await admin
+    .from('passengers')
+    .insert(allPassengers)
+    .select('id')
+
+  if (passError) {
+    console.error('[createTripAction] passenger bulk insert error:', passError.message)
+  }
+
+  // ── Bulk insert ALL trip_passenger links in ONE call ─────────────────────
+  if (insertedPassengers && insertedPassengers.length > 0) {
+    const links = insertedPassengers.map((p, i) => ({
+      trip_id: newTrip.id,
+      passenger_id: p.id,
+      seq_number: i + 1,
+    }))
+
+    const { error: linkError } = await admin.from('trip_passengers').insert(links)
+    if (linkError) {
+      console.error('[createTripAction] trip_passengers bulk link error:', linkError.message)
     }
   }
 
   // Extract the submit button action (save vs print)
   const submitAction = formData.get('action') as string
 
-  // 7. Revalidate and redirect
+  // Revalidate and redirect
   revalidatePath('/driver/trips')
-  
+
   if (submitAction === 'print') {
     redirect(`/driver/trips/${newTrip.id}/print`)
   }
 
-  // Return success with trip details instead of redirecting
   return {
     success: true,
     tripId: newTrip.id,

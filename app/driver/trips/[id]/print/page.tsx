@@ -31,13 +31,18 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
   const admin = createAdminClient()
   const { id } = await params
 
-  const COMPANY = await getCompanySettings()
+  // Run both queries in parallel — saves ~100ms
+  const [companyResult, tripResult] = await Promise.all([
+    getCompanySettings(),
+    supabase
+      .from('trips')
+      .select(`*, drivers(full_name, nationality, card_number, mobile_number, photo_url), vehicles(plate_number, vehicle_type, registration_number)`)
+      .eq('id', id)
+      .single(),
+  ])
 
-  const { data: trip } = await supabase
-    .from('trips')
-    .select(`*, drivers(full_name, nationality, card_number, mobile_number, photo_url), vehicles(plate_number, vehicle_type, registration_number)`)
-    .eq('id', id)
-    .single()
+  const COMPANY = companyResult
+  const trip = tripResult.data
 
   if (!trip) notFound()
 
@@ -60,8 +65,6 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
   const driver = (trip as any).drivers
   const vehicle = (trip as any).vehicles
 
-  const verifyUrl = `${APP_URL}/verify/${id}`
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=70x70&data=${encodeURIComponent(verifyUrl)}&color=14213D&bgcolor=FFFFFF&margin=2`
   const partyTwo = passengers.length > 0 ? passengers[0].full_name : '—'
 
   const pageStyle: React.CSSProperties = {

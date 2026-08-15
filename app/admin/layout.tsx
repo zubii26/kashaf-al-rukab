@@ -13,7 +13,6 @@ import { useRouter } from 'next/navigation'
 const sidebarLinks = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Bookings', href: '/admin/bookings', icon: BookOpen },
-  { name: 'Trips', href: '/admin/trips', icon: Navigation },
   { name: 'Drivers', href: '/admin/drivers', icon: UserSquare2 },
   { name: 'Vehicles', href: '/admin/vehicles', icon: Car },
   { name: 'Settings', href: '/admin/settings', icon: Settings },

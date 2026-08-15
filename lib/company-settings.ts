@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /** DB row shape (snake_case) */
@@ -48,7 +49,7 @@ function addAliases(data: Omit<CompanySettings, 'nameAr' | 'nameEn' | 'licenseNu
   }
 }
 
-export async function getCompanySettings(): Promise<CompanySettings> {
+async function fetchCompanySettings(): Promise<CompanySettings> {
   try {
     const admin = createAdminClient()
     const { data, error } = await admin
@@ -65,6 +66,13 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     return DEFAULT_SETTINGS
   }
 }
+
+// Cache for 5 minutes — company settings rarely change
+export const getCompanySettings = unstable_cache(
+  fetchCompanySettings,
+  ['company-settings'],
+  { revalidate: 300 }
+)
 
 /**
  * Returns a public URL for a file in Supabase Storage.

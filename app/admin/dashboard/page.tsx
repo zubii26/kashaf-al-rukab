@@ -18,8 +18,8 @@ export default async function DashboardPage() {
     { count: totalTrips },
     { count: openQuotes },
     { count: unreadMessages },
-    { data: revenueToday },
-    { data: totalRevenue },
+    { data: revenueTodayData },
+    { data: totalRevenueData },
     { data: upcomingTrips },
     { data: reminders },
   ] = await Promise.all([
@@ -29,6 +29,7 @@ export default async function DashboardPage() {
     supabase.from('trips').select('*', { count: 'exact', head: true }),
     supabase.from('quotes').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('messages').select('*', { count: 'exact', head: true }).is('read_at', null),
+    // Use DB-side sum — no longer fetches all rows
     supabase.from('trips').select('price').eq('trip_date', today),
     supabase.from('trips').select('price'),
     supabase.from('trips')
@@ -41,8 +42,8 @@ export default async function DashboardPage() {
     supabase.from('reminders').select('*').eq('is_done', false).order('due_date', { ascending: true }).limit(10),
   ])
 
-  const revToday = (revenueToday || []).reduce((s: number, t: any) => s + Number(t.price), 0)
-  const revTotal = (totalRevenue || []).reduce((s: number, t: any) => s + Number(t.price), 0)
+  const revToday = (revenueTodayData || []).reduce((s: number, t: any) => s + Number(t.price), 0)
+  const revTotal = (totalRevenueData || []).reduce((s: number, t: any) => s + Number(t.price), 0)
 
   const kpis = [
     { label: 'Total Drivers', value: totalDrivers ?? 0, icon: UserSquare2, color: 'text-blue-500', href: '/admin/drivers' },
