@@ -104,9 +104,34 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
         <div className="p-12 print:p-8 pt-16 print:pt-10">
           
           {/* HEADER */}
+          <div className="flex justify-between items-start mb-8">
+            <div className="text-right">
+              <h1 className="text-2xl font-black text-[#C53030] mb-2">{COMPANY.nameAr}</h1>
+              <p className="text-sm font-bold text-[#6B7280]">س.ت: {COMPANY.crNumber}</p>
+              <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
+            </div>
+            
+            <div className="text-center">
+              {COMPANY.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={COMPANY.logo_url} alt="Logo" className="w-48 h-20 object-contain" />
+              ) : (
+                <div className="w-48 h-16 flex items-center justify-center">
+                  <p className="text-[24px] font-black text-[#14213D] leading-tight" dir="ltr">{COMPANY.nameEn}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="w-48 flex justify-end">
+              {/* Empty space to balance flexbox */}
+            </div>
+          </div>
+
+          {/* TITLE */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-black text-[#14213D] mb-1">{COMPANY.nameAr}</h1>
-            <p className="text-xl font-bold text-[#C53030]">سجل الفحص اليومي للسيارة</p>
+            <div className="inline-block border-2 border-[#C53030] px-12 py-2 rounded">
+              <p className="text-xl font-black text-[#C53030]">سجل الفحص اليومي للسيارة</p>
+            </div>
           </div>
 
           {/* META INFO */}
@@ -139,14 +164,19 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
           {renderSection('ثالثاً: أدوات ومتطلبات السلامة', SAFETY_ITEMS)}
 
           {/* FOOTER */}
-          <div className="mt-12 pt-6" dir="rtl">
+          <div className="mt-12 pt-6 pb-8" dir="rtl">
             <p className="text-sm font-bold text-[#1F2430] mb-8">
               إقرار السائق: أقر بأنني قمت بفحص الحافلة والتأكد من سلامتها وجاهزيتها قبل التشغيل.
             </p>
             <div className="flex justify-center">
-              <div className="w-24 h-24 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
-                <p className="text-[10px] text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
-              </div>
+              {COMPANY.stamp_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={COMPANY.stamp_url} alt="Stamp" className="w-32 h-32 object-contain mix-blend-multiply" />
+              ) : (
+                <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
+                  <p className="text-[10px] text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
+                </div>
+              )}
             </div>
           </div>
 

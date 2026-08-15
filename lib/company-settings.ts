@@ -21,19 +21,19 @@ export interface CompanySettings {
 
 const DEFAULT_SETTINGS: CompanySettings = {
   id: 'default',
-  name_ar: 'كشاف الركاب للنقل',
-  name_en: 'Kashaf Al Rukab Transport',
-  license_number: '',
-  cr_number: '',
+  name_ar: 'مؤسسة ماهر السفرنقل',
+  name_en: 'Maher Transport',
+  license_number: '35/00002393',
+  cr_number: '7031314748',
   contact_phone: '',
-  logo_url: null,
-  stamp_url: null,
+  logo_url: '/logo.jpeg',
+  stamp_url: '/stamp.png',
   updated_at: new Date().toISOString(),
   // aliases
-  nameAr: 'كشاف الركاب للنقل',
-  nameEn: 'Kashaf Al Rukab Transport',
-  licenseNumber: '',
-  crNumber: '',
+  nameAr: 'مؤسسة ماهر السفرنقل',
+  nameEn: 'Maher Transport',
+  licenseNumber: '35/00002393',
+  crNumber: '7031314748',
   contactPhone: '',
 }
 

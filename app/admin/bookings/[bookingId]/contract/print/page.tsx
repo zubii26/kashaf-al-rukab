@@ -61,18 +61,24 @@ export default async function PrintContractDocument({ params }: { params: Promis
             <div className="text-right">
               <h1 className="text-2xl font-black text-[#C53030] mb-2">{COMPANY.nameAr}</h1>
               <p className="text-sm font-bold text-[#6B7280]">س.ت: {COMPANY.crNumber}</p>
+              <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
             </div>
             
             <div className="text-center">
-              {/* Logo Placeholder */}
-              <div className="w-48 h-16 flex items-center justify-center">
-                <p className="text-[24px] font-black text-[#14213D] leading-tight" dir="ltr">{COMPANY.nameEn}</p>
-              </div>
+              {COMPANY.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={COMPANY.logo_url} alt="Logo" className="w-48 h-20 object-contain" />
+              ) : (
+                <div className="w-48 h-16 flex items-center justify-center">
+                  <p className="text-[24px] font-black text-[#14213D] leading-tight" dir="ltr">{COMPANY.nameEn}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-4">
               <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                 {driver?.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={driver.photo_url} alt="Driver" className="w-[80px] h-[80px] object-cover border-2 border-[#14213D] rounded" style={{ objectPosition: 'top' }} />
                 ) : (
                   <div className="w-[80px] h-[80px] border-2 border-dashed border-[#E2E6EC] bg-[#F7F9FC] flex flex-col items-center justify-center rounded">
@@ -138,9 +144,14 @@ export default async function PrintContractDocument({ params }: { params: Promis
 
           {/* STAMP */}
           <div className="flex justify-center mt-12 pb-12">
-            <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
-              <p className="text-xs text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
-            </div>
+            {COMPANY.stamp_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={COMPANY.stamp_url} alt="Stamp" className="w-32 h-32 object-contain mix-blend-multiply" />
+            ) : (
+              <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
+                <p className="text-xs text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
+              </div>
+            )}
           </div>
 
         </div>
