@@ -82,7 +82,13 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] py-6 flex flex-col items-center print:block print:bg-white print:py-0">
+    <div className="min-h-screen bg-[#F7F9FC] py-6 flex flex-col items-center print:block print:bg-white print:py-0 print:m-0">
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 0; }
+          body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
 
       {/* زر الطباعة - يُخفى عند الطباعة */}
       <div className="w-[210mm] mb-4 flex justify-between items-center print:hidden">
