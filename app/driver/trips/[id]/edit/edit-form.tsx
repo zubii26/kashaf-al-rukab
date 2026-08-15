@@ -4,7 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { updateTripAction } from './actions'
-import { DocumentScannerUpload, type ExtractedData } from '@/components/driver/DocumentScannerUpload'
+import { DocumentScannerUpload } from '@/components/driver/DocumentScannerUpload'
+import type { ExtractedPassenger, ScanResult } from '@/lib/ai/extractDocument'
 
 interface Passenger {
   id: string          // empty string = new passenger
@@ -45,41 +46,91 @@ export default function EditTripForm({ tripId, initialTrip, initialPassengers }:
       : [{ id: '', full_name: '', nationality: '', passport_number: '', seq_number: 1, isNew: true }]
   )
 
+  // ── Review-before-save state ──────────────────────────────────────────────
+  const [pendingBatch, setPendingBatch] = useState<{
+    passengers: ExtractedPassenger[]
+    warnings: string[]
+  } | null>(null)
+
   const activePassengers = passengers.filter(p => !p._removed)
 
   const updatePassenger = (idx: number, field: keyof Passenger, value: string) => {
     setPassengers(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
   }
 
-  const handleBatchScanSuccess = (data: ExtractedData) => {
-    setPassengers(prev => {
-      // Find the first empty passenger row
-      const emptyIdx = prev.findIndex(p => !p._removed && !p.full_name && !p.passport_number)
-      
-      if (emptyIdx !== -1) {
-        // Fill the empty row
-        const newPassengers = [...prev]
-        newPassengers[emptyIdx] = {
-          ...newPassengers[emptyIdx],
-          full_name: data.full_name || '',
-          nationality: data.nationality || '',
-          passport_number: data.passport_number || data.visa_number || '',
-        }
-        return newPassengers
-      } else {
-        // Append a new row
-        const nextSeq = Math.max(...prev.map(p => p.seq_number), 0) + 1
-        return [...prev, {
-          id: '',
-          trip_id: tripId,
-          full_name: data.full_name || '',
-          nationality: data.nationality || '',
-          passport_number: data.passport_number || data.visa_number || '',
-          seq_number: nextSeq,
-          isNew: true
-        }]
-      }
+  // ── Scan success: store in pendingBatch for review ────────────────────────
+  const handleBatchScanSuccess = (data: ScanResult) => {
+    setPendingBatch({
+      passengers: data.passengers,
+      warnings: data.warnings,
     })
+  }
+
+  // ── Review table: edit a pending passenger field ──────────────────────────
+  const updatePendingPassenger = (index: number, field: keyof ExtractedPassenger, value: string) => {
+    setPendingBatch(prev => {
+      if (!prev) return prev
+      const updated = [...prev.passengers]
+      updated[index] = { ...updated[index], [field]: value || null }
+      return { ...prev, passengers: updated }
+    })
+  }
+
+  // ── Review table: remove a pending passenger row ──────────────────────────
+  const removePendingPassenger = (index: number) => {
+    setPendingBatch(prev => {
+      if (!prev) return prev
+      const updated = prev.passengers.filter((_, i) => i !== index)
+      if (updated.length === 0) return null
+      return { ...prev, passengers: updated }
+    })
+  }
+
+  // ── Review table: confirm all → append to passenger list ──────────────────
+  const confirmBatch = () => {
+    if (!pendingBatch) return
+
+    setPassengers(prev => {
+      const current = [...prev]
+      const maxSeq = Math.max(...current.map(p => p.seq_number), 0)
+      const maxAllowed = 50 - current.filter(p => !p._removed).length
+
+      const toAdd = pendingBatch.passengers.slice(0, maxAllowed)
+
+      toAdd.forEach((p, i) => {
+        // Try to fill an empty row first
+        const emptyIdx = current.findIndex(
+          existing => !existing._removed && !existing.full_name && !existing.passport_number
+        )
+
+        if (emptyIdx !== -1) {
+          current[emptyIdx] = {
+            ...current[emptyIdx],
+            full_name: p.full_name || '',
+            nationality: p.nationality || '',
+            passport_number: p.passport_number || p.visa_number || '',
+          }
+        } else {
+          current.push({
+            id: '',
+            full_name: p.full_name || '',
+            nationality: p.nationality || '',
+            passport_number: p.passport_number || p.visa_number || '',
+            seq_number: maxSeq + i + 1,
+            isNew: true,
+          })
+        }
+      })
+
+      return current
+    })
+
+    setPendingBatch(null)
+  }
+
+  // ── Cancel batch ──────────────────────────────────────────────────────────
+  const cancelBatch = () => {
+    setPendingBatch(null)
   }
 
   const addPassenger = () => {
@@ -218,6 +269,124 @@ export default function EditTripForm({ tripId, initialTrip, initialPassengers }:
         <div className="mb-6">
           <DocumentScannerUpload onBatchScanSuccess={handleBatchScanSuccess} />
         </div>
+
+        {/* ── Review-before-save table ────────────────────────────────────── */}
+        {pendingBatch && pendingBatch.passengers.length > 0 && (
+          <div className="bg-surface border border-border rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary">
+                Review Extracted Passengers ({pendingBatch.passengers.length})
+              </h4>
+              <span className="text-xs text-text-secondary">
+                Edit fields before confirming
+              </span>
+            </div>
+
+            {/* Warnings */}
+            {pendingBatch.warnings.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 space-y-1">
+                {pendingBatch.warnings.map((w, i) => (
+                  <p key={i}>⚠ {w}</p>
+                ))}
+              </div>
+            )}
+
+            {/* Editable table */}
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-text-secondary w-8">#</th>
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-text-secondary">Name</th>
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-text-secondary">Nationality</th>
+                  <th className="text-left py-2 px-2 text-xs font-semibold text-text-secondary">ID / Visa Number</th>
+                  <th className="py-2 px-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingBatch.passengers.map((p, idx) => {
+                  const hasCheckDigitWarning = pendingBatch.warnings.some(
+                    w => p.passport_number && w.includes(p.passport_number)
+                  )
+                  return (
+                    <tr key={idx} className={`border-b border-border/50 ${hasCheckDigitWarning ? 'bg-amber-50/50' : ''}`}>
+                      <td className="py-2 px-2 text-xs text-text-secondary font-medium">{idx + 1}</td>
+                      <td className="py-1 px-1">
+                        <input
+                          type="text"
+                          value={p.full_name || ''}
+                          onChange={e => updatePendingPassenger(idx, 'full_name', e.target.value)}
+                          className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                          placeholder="Full name"
+                        />
+                      </td>
+                      <td className="py-1 px-1">
+                        <input
+                          type="text"
+                          value={p.nationality || ''}
+                          onChange={e => updatePendingPassenger(idx, 'nationality', e.target.value)}
+                          className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                          placeholder="Nationality"
+                        />
+                      </td>
+                      <td className="py-1 px-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={p.passport_number || p.visa_number || ''}
+                            onChange={e => {
+                              if (p.passport_number) {
+                                updatePendingPassenger(idx, 'passport_number', e.target.value)
+                              } else {
+                                updatePendingPassenger(idx, 'visa_number', e.target.value)
+                              }
+                            }}
+                            className={`w-full bg-background border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent ${
+                              hasCheckDigitWarning ? 'border-amber-400' : 'border-border'
+                            }`}
+                            placeholder="Passport or Visa number"
+                          />
+                          {hasCheckDigitWarning && (
+                            <span className="text-amber-600 text-xs font-bold flex-shrink-0" title="MRZ check-digit mismatch — verify manually">⚠</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-1 px-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removePendingPassenger(idx)}
+                          className="text-red-400 hover:text-red-600 p-1"
+                          title="Exclude this passenger"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {/* Confirm / Cancel buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={cancelBatch}
+                className="px-4 py-2 bg-surface border border-border text-text-secondary rounded-md text-sm font-medium hover:bg-background"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBatch}
+                className="px-4 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:bg-accent/90"
+              >
+                Confirm All ({pendingBatch.passengers.length})
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           {passengers.map((p, idx) => {

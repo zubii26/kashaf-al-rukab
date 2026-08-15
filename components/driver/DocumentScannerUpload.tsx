@@ -1,20 +1,17 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import type { ExtractedPassenger, ScanResult } from '@/lib/ai/extractDocument'
 
-export type ExtractedData = {
-  full_name: string | null
-  nationality: string | null
-  passport_number: string | null
-  visa_number: string | null
-  expiry_date: string | null
-  document_image_url: string | null
-}
+// Re-export so consumer pages can import from one place
+export type { ExtractedPassenger, ScanResult }
 
-// ─── Image resize (cost control) ─────────────────────────────────────────────
-// Caps the long edge at 1024px and re-encodes as JPEG@85% before any upload.
-// This is the single biggest lever on vision API cost — enforced on every path.
-const MAX_PX = 1024
+// ─── Image resize (cost control + accuracy) ──────────────────────────────────
+// Caps the long edge at 1536px and re-encodes as JPEG@85% before any upload.
+// Raised from 1024px to improve digit legibility on dense ID documents.
+// Gemini charges a fixed ~258 tokens per image regardless of resolution,
+// so there is zero API cost increase.
+const MAX_PX = 1536
 
 async function resizeImage(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -87,7 +84,7 @@ async function scanWithRetry(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 interface Props {
-  onBatchScanSuccess: (data: ExtractedData) => void
+  onBatchScanSuccess: (data: ScanResult) => void
 }
 
 type Status = 'idle' | 'processing' | 'retrying' | 'done' | 'error'
@@ -97,6 +94,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [retryInfo, setRetryInfo] = useState({ attempt: 0, max: MAX_RETRIES })
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [lastWarnings, setLastWarnings] = useState<string[]>([])
   const [isDragging, setIsDragging] = useState(false)
 
   const processingRef = useRef(false)
@@ -114,6 +112,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
     setProgress({ current: 0, total })
     setStatus('processing')
     setErrorMsg(null)
+    setLastWarnings([])
 
     let successCount = 0
 
@@ -146,7 +145,13 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
         continue
       }
 
-      onSuccessRef.current(json as ExtractedData)
+      // Parse as ScanResult
+      const scanResult = json as ScanResult
+      if (scanResult.warnings && scanResult.warnings.length > 0) {
+        setLastWarnings(scanResult.warnings)
+      }
+
+      onSuccessRef.current(scanResult)
       pendingFileRef.current = null
       successCount++
     }
@@ -279,13 +284,23 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
           </p>
         )}
 
+        {/* Warnings from the last scan (e.g. check-digit mismatches, dropped rows) */}
+        {lastWarnings.length > 0 && (status === 'done' || status === 'idle') && (
+          <div className="text-left p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 space-y-1">
+            <p className="font-semibold">⚠ {lastWarnings.length} {lastWarnings.length === 1 ? 'notice' : 'notices'}:</p>
+            {lastWarnings.map((w, i) => (
+              <p key={i}>• {w}</p>
+            ))}
+          </div>
+        )}
+
         {(status === 'idle' || status === 'error') && (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-text-primary">Batch Auto-Fill</p>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
               Click the button, drag &amp; drop, or press{' '}
               <kbd className="px-1 py-0.5 bg-border rounded text-text-primary font-mono text-xs">Ctrl+V</kbd>
-              {' '}to paste. The AI extracts passport/visa fields automatically.
+              {' '}to paste. Upload a passport, visa, or a full passenger list screenshot.
             </p>
             <button
               type="button"
