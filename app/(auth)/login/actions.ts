@@ -24,15 +24,29 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
     return { error: error.message }
   }
 
-  // Role is now embedded in the JWT via the custom_access_token_hook.
-  // No separate profiles query needed — read directly from app_metadata.
-  const role = authData.user.app_metadata?.user_role
+  // The hook injects user_role into JWT claims, not the user DB record.
+  // Try the session's decoded user first (reflects JWT claims),
+  // then fall back to the user object's app_metadata.
+  const role = authData.session?.user?.app_metadata?.user_role
+    ?? authData.user.app_metadata?.user_role
+
+  // Fallback: if role is still not in JWT (e.g., first login after hook was enabled),
+  // do one profiles query and redirect based on that
+  let finalRole = role
+  if (!finalRole) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authData.user.id)
+      .single()
+    finalRole = profile?.role
+  }
 
   revalidatePath('/', 'layout')
 
   logPerf('login.total', totalEnd())
 
-  if (role === 'driver') {
+  if (finalRole === 'driver') {
     redirect('/driver/trips/new')
   }
 

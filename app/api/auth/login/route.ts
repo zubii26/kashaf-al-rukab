@@ -17,9 +17,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
 
-    // Role is now embedded in the JWT via the custom_access_token_hook.
-    // No separate profiles query needed.
-    const role = authData.user?.app_metadata?.user_role
+    // Read role from JWT session claims first, then user object, then profiles fallback
+    let role = authData.session?.user?.app_metadata?.user_role
+      ?? authData.user?.app_metadata?.user_role
+
+    if (!role) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authData.user.id)
+        .single()
+      role = profile?.role
+    }
 
     return NextResponse.json({ success: true, role: role || null }, { status: 200 })
   } catch (err) {
