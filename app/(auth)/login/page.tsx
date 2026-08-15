@@ -12,9 +12,8 @@ export default function LoginPage() {
     <main className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-text-primary">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-primary/20 rounded-md flex items-center justify-center text-primary font-bold">
-            LOGO
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.jpeg" alt="Maher Transport Logo" className="mx-auto h-24 w-auto object-contain rounded-md" />
         </div>
         <Card>
           <CardHeader className="text-center">
