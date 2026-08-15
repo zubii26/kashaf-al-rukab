@@ -18,19 +18,20 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle>Welcome Back</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardDescription>Sign in with your email or name</CardDescription>
           </CardHeader>
           <CardContent>
             <form action={formAction} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="email">Email</label>
+                <label className="text-sm font-medium" htmlFor="email">Email or Name</label>
                 <input
                   id="email"
                   name="email"
-                  type="email"
+                  type="text"
                   required
+                  autoComplete="username"
                   className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="name@example.com"
+                  placeholder="Admin email or driver name"
                 />
               </div>
               <div className="space-y-2">
@@ -40,6 +41,7 @@ export default function LoginPage() {
                   name="password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
@@ -51,12 +53,6 @@ export default function LoginPage() {
               <PrimaryButton type="submit" className="w-full mt-2" disabled={isPending}>
                 {isPending ? 'Signing in...' : 'Sign In'}
               </PrimaryButton>
-              <p className="text-center text-sm text-text-secondary mt-3">
-                Driver?{' '}
-                <a href="/driver-login" className="text-primary hover:underline font-medium">
-                  Sign in here →
-                </a>
-              </p>
             </form>
           </CardContent>
         </Card>
