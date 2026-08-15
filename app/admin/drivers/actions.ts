@@ -90,9 +90,12 @@ export async function createDriver(formData: FormData) {
   }
 
   // 5. Create Driver Record
+  // login_email is denormalized here so driver-login can resolve name → email
+  // in a single DB query without a separate auth.admin.getUserById() call.
   const { error: driverError } = await adminClient.from('drivers').insert({
     auth_user_id: userId,
     full_name,
+    login_email: email,
     nationality,
     mobile_number,
     residence_number,

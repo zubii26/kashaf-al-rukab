@@ -3,10 +3,10 @@
 import { useActionState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { PrimaryButton } from '@/components/ui/button'
-import { login } from './actions'
+import { driverLogin } from './actions'
 
-export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(login, null)
+export default function DriverLoginPage() {
+  const [state, formAction, isPending] = useActionState(driverLogin, null)
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-text-primary">
@@ -17,29 +17,35 @@ export default function LoginPage() {
         </div>
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>Welcome Back</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
+            <CardTitle>تسجيل دخول السائق</CardTitle>
+            <CardDescription>Driver Sign In</CardDescription>
           </CardHeader>
           <CardContent>
             <form action={formAction} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="email">Email</label>
+                <label className="text-sm font-medium" htmlFor="name">
+                  الاسم الكامل
+                </label>
                 <input
-                  id="email"
-                  name="email"
-                  type="email"
+                  id="name"
+                  name="name"
+                  type="text"
                   required
+                  autoComplete="name"
                   className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="name@example.com"
+                  placeholder="أدخل اسمك الكامل"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="password">Password</label>
+                <label className="text-sm font-medium" htmlFor="password">
+                  كلمة المرور
+                </label>
                 <input
                   id="password"
                   name="password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
@@ -49,14 +55,8 @@ export default function LoginPage() {
                 </div>
               )}
               <PrimaryButton type="submit" className="w-full mt-2" disabled={isPending}>
-                {isPending ? 'Signing in...' : 'Sign In'}
+                {isPending ? 'جارٍ تسجيل الدخول...' : 'تسجيل الدخول'}
               </PrimaryButton>
-              <p className="text-center text-sm text-text-secondary mt-3">
-                Driver?{' '}
-                <a href="/driver-login" className="text-primary hover:underline font-medium">
-                  Sign in here →
-                </a>
-              </p>
             </form>
           </CardContent>
         </Card>

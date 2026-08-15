@@ -116,6 +116,7 @@ export interface Database {
           id: string
           auth_user_id: string
           full_name: string
+          login_email: string
           nationality: string
           mobile_number: string
           residence_number: string
@@ -129,6 +130,7 @@ export interface Database {
           id?: string
           auth_user_id: string
           full_name: string
+          login_email: string
           nationality: string
           mobile_number: string
           residence_number: string
@@ -142,6 +144,7 @@ export interface Database {
           id?: string
           auth_user_id?: string
           full_name?: string
+          login_email?: string
           nationality?: string
           mobile_number?: string
           residence_number?: string

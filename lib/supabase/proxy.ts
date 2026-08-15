@@ -48,7 +48,8 @@ export async function updateSession(request: NextRequest) {
   // If no user and trying to access protected routes or the root page
   if (!user && (path.startsWith('/admin') || path.startsWith('/driver') || path === '/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    // Send drivers to the driver-specific login, others to the main login
+    url.pathname = path.startsWith('/driver') ? '/driver-login' : '/login'
     return NextResponse.redirect(url)
   }
 
@@ -56,7 +57,7 @@ export async function updateSession(request: NextRequest) {
   // The custom_access_token_hook injects user_role into app_metadata on every token issue/refresh
   const role = user?.app_metadata?.user_role as string | undefined
 
-  const isAuthRoute = path.startsWith('/login') || path === '/'
+  const isAuthRoute = path.startsWith('/login') || path.startsWith('/driver-login') || path === '/'
 
   if (user && role) {
     // Set headers so downstream server components can read user info
