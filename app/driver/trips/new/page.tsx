@@ -12,8 +12,7 @@ export default function NewDriverTripPage() {
   const [tripDate, setTripDate] = useState('')
   // Feature C: track which fields were auto-filled so we can show [Auto-filled] label
   const [autoFilled, setAutoFilled] = useState<Set<string>>(new Set())
-  // Hide scanner after first successful extraction — keeps the form clean
-  const [scannerVisible, setScannerVisible] = useState(true)
+  // Scanner is always visible — it manages its own idle/scanning/done states internally
 
   // ── Review-before-save state ──────────────────────────────────────────────
   // Holds AI-extracted passengers awaiting human confirmation.
@@ -50,10 +49,8 @@ export default function NewDriverTripPage() {
 
   // ── Scan success: ACCUMULATE into pendingBatch for review ──────────────────
   // Uses functional setState so each successive scan MERGES its passengers
-  // into the existing pendingBatch instead of replacing it.  This means
-  // scanning 3 separate IDs correctly shows all 3 passengers in one table.
+  // into the existing pendingBatch instead of replacing it.
   const handleBatchScanSuccess = useCallback((data: ScanResult) => {
-    setScannerVisible(false)
     setPendingBatch(prev => ({
       passengers: [...(prev?.passengers ?? []), ...data.passengers],
       warnings:   [...(prev?.warnings   ?? []), ...data.warnings],
@@ -114,7 +111,6 @@ export default function NewDriverTripPage() {
   // ── Cancel batch ──────────────────────────────────────────────────────────
   const cancelBatch = () => {
     setPendingBatch(null)
-    setScannerVisible(true)
   }
 
   const [savedTrip, setSavedTrip] = useState<{ message: string, tripId: string, tripNumber: number } | null>(null)
@@ -298,21 +294,9 @@ export default function NewDriverTripPage() {
             Passengers data (up to 50 passengers can be added)
           </h3>
           
-          {scannerVisible ? (
-            <div className="max-w-4xl mx-auto mb-8">
-              <DocumentScannerUpload onBatchScanSuccess={handleBatchScanSuccess} />
-            </div>
-          ) : (
-            <div className="max-w-4xl mx-auto mb-4 text-right">
-              <button
-                type="button"
-                onClick={() => setScannerVisible(true)}
-                className="text-sm text-accent hover:underline"
-              >
-                + Scan another document
-              </button>
-            </div>
-          )}
+          <div className="max-w-4xl mx-auto mb-8">
+            <DocumentScannerUpload onBatchScanSuccess={handleBatchScanSuccess} />
+          </div>
 
           {/* ── Review-before-save table ────────────────────────────────────── */}
           {pendingBatch && pendingBatch.passengers.length > 0 && (
