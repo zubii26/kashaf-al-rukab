@@ -152,24 +152,24 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             <PrintHeader title="عقد نقل على الطرق البرية" />
 
             {/* التاريخ */}
-            <div style={{ fontSize: 13, marginTop: 4 }}>
+            <div style={{ fontSize: 15, marginTop: 6 }}>
               <span style={{ fontWeight: 700, color: '#C53030' }}>التاريخ: </span>
               <span>{dateDash} — {dayAR}</span>
             </div>
 
             {/* النص القانوني */}
-            <div style={{ fontSize: 11, lineHeight: 1.6, color: '#1F2430', textAlign: 'justify' }}>{LEGAL_CLAUSE}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#1F2430', textAlign: 'justify' }}>{LEGAL_CLAUSE}</div>
 
-            <div style={{ fontSize: 13 }}>وبناءً على ما سبق تم إبرام عقد النقل بين الأطراف الآتية:</div>
+            <div style={{ fontSize: 15 }}>وبناءً على ما سبق تم إبرام عقد النقل بين الأطراف الآتية:</div>
 
             {/* الأطراف */}
-            <div style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div><span style={{ fontWeight: 700, color: '#C53030' }}>الطرف الأول: </span><span style={{ fontWeight: 700 }}>{COMPANY.nameAr}</span></div>
               <div><span style={{ fontWeight: 700, color: '#C53030' }}>الطرف الثاني: </span><span style={{ fontWeight: 700 }}>السيد/ {partyTwo}</span></div>
             </div>
 
             {/* تفاصيل الرحلة */}
-            <div style={{ fontSize: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div><span style={{ fontWeight: 900 }}>النقل من: </span><span style={{ fontWeight: 700, color: '#C53030', textTransform: 'uppercase' }}>{trip.pickup_location}</span></div>
               <div><span style={{ fontWeight: 900 }}>وصولاً إلى: </span><span style={{ fontWeight: 700, color: '#C53030', textTransform: 'uppercase' }}>{trip.dropoff_location}</span></div>
               <div><span style={{ fontWeight: 900 }}>يوم: </span><span style={{ fontWeight: 700, color: '#C53030' }}>{dayAR} — {dateAR}</span></div>
@@ -177,9 +177,9 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* سياسة الإلغاء */}
-            <div style={{ fontSize: 11, lineHeight: 1.6, color: '#1F2430', textAlign: 'justify' }}>{CANCELLATION_POLICY}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#1F2430', textAlign: 'justify' }}>{CANCELLATION_POLICY}</div>
 
-            <div style={{ fontSize: 12, color: '#1F2430', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 14, color: '#1F2430', lineHeight: 1.75 }}>
               اتفق الطرفان على أن ينفذ الطرف الأول عملية النقل للطرف الثاني مع مرافقيه من الموقع المحدد مسبقاً وتوصيلهم إلى الجهة المحددة بالعقد.
             </div>
 
