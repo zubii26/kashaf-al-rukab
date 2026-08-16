@@ -22,16 +22,16 @@ export interface CompanySettings {
 
 const DEFAULT_SETTINGS: CompanySettings = {
   id: 'default',
-  name_ar: 'مؤسسة ماهر السفرنقل',
+  name_ar: 'مؤسسة ماهر السفر للنقل',
   name_en: 'Maher Transport',
   license_number: '35/00002393',
   cr_number: '7031314748',
   contact_phone: '+966 50 797 5123',
   logo_url: '/logo.jpeg',
-  stamp_url: '/stamp.png',
+  stamp_url: '/company_stamp_new.png',
   updated_at: new Date().toISOString(),
   // aliases
-  nameAr: 'مؤسسة ماهر السفرنقل',
+  nameAr: 'مؤسسة ماهر السفر للنقل',
   nameEn: 'Maher Transport',
   licenseNumber: '35/00002393',
   crNumber: '7031314748',

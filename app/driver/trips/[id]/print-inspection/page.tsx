@@ -60,7 +60,7 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
 
   const renderSection = (title: string, items: typeof DASHBOARD_ITEMS) => (
     <div className="mb-6">
-      <h2 className="text-[#C53030] font-bold text-lg mb-2" dir="rtl">{title}</h2>
+      <h2 className="text-[#7d333b] font-bold text-lg mb-2" dir="rtl">{title}</h2>
       <table className="w-full border-t border-b border-[#14213D] text-sm" dir="rtl">
         <thead>
           <tr className="border-b border-[#E2E6EC]">
@@ -75,7 +75,7 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
             <tr key={idx} className="border-b border-[#E2E6EC] last:border-0">
               <td className="py-3 px-4 font-semibold text-[#1F2430]">{item.labelAr}</td>
               <td className="py-3 px-4 text-center text-[#1E824C]">{isOk ? '✓' : '—'}</td>
-              <td className="py-3 px-4 text-center text-[#C53030]">{!isOk ? '✗' : '—'}</td>
+              <td className="py-3 px-4 text-center text-[#7d333b]">{!isOk ? '✗' : '—'}</td>
               <td className="py-3 px-4 text-[#6B7280]"></td>
             </tr>
           ))}
@@ -99,14 +99,14 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
         style={{ minHeight: '297mm', fontFamily: "'Segoe UI', Arial, sans-serif" }}
       >
         {/* Border wrapper for styling like PDF */}
-        <div className="absolute inset-4 border-[3px] border-dotted border-[#C53030] print:inset-2 pointer-events-none"></div>
+        <div className="absolute inset-4 border-[3px] border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
 
         <div className="p-12 print:p-8 pt-16 print:pt-10">
           
           {/* HEADER */}
           <div className="flex justify-between items-start mb-8">
             <div className="text-right">
-              <h1 className="text-2xl font-black text-[#C53030] mb-2">{COMPANY.nameAr}</h1>
+              <h1 className="text-2xl font-black text-[#7d333b] mb-2">{COMPANY.nameAr}</h1>
               <p className="text-sm font-bold text-[#6B7280]">س.ت: {COMPANY.crNumber}</p>
               <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
             </div>
@@ -129,8 +129,8 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
 
           {/* TITLE */}
           <div className="text-center mb-8">
-            <div className="inline-block border-2 border-[#C53030] px-12 py-2 rounded">
-              <p className="text-xl font-black text-[#C53030]">سجل الفحص اليومي للسيارة</p>
+            <div className="inline-block border-2 border-[#7d333b] px-12 py-2 rounded">
+              <p className="text-xl font-black text-[#7d333b]">سجل الفحص اليومي للسيارة</p>
             </div>
           </div>
 
@@ -138,21 +138,21 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
           <div className="flex justify-between items-end border-b-2 border-[#14213D] pb-4 mb-8" dir="rtl">
             <div className="flex gap-12">
               <div>
-                <p className="text-sm font-bold text-[#C53030] mb-1">اسم الشركة</p>
+                <p className="text-sm font-bold text-[#7d333b] mb-1">اسم الشركة</p>
                 <p className="font-semibold text-[#1F2430]">{COMPANY.nameAr}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-[#C53030] mb-1">لوحة المركبة</p>
+                <p className="text-sm font-bold text-[#7d333b] mb-1">لوحة المركبة</p>
                 <p className="font-semibold text-[#1F2430] font-mono tracking-wider">{vehicle?.plate_number || '—'}</p>
               </div>
             </div>
             <div className="flex gap-12 text-left" dir="ltr">
               <div>
-                <p className="text-sm font-bold text-[#C53030] mb-1 text-right" dir="rtl">اسم السائق</p>
+                <p className="text-sm font-bold text-[#7d333b] mb-1 text-right" dir="rtl">اسم السائق</p>
                 <p className="font-semibold text-[#1F2430] uppercase">{driver?.full_name || '—'}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-[#C53030] mb-1 text-right" dir="rtl">التاريخ</p>
+                <p className="text-sm font-bold text-[#7d333b] mb-1 text-right" dir="rtl">التاريخ</p>
                 <p className="font-semibold text-[#1F2430]">{formattedDate}</p>
               </div>
             </div>
@@ -171,7 +171,7 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
             <div className="flex justify-center">
               {COMPANY.stamp_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={COMPANY.stamp_url} alt="Stamp" className="w-32 h-32 object-contain mix-blend-multiply" />
+                <img src={COMPANY.stamp_url} alt="Stamp" className="w-48 h-48 object-contain mix-blend-multiply" />
               ) : (
                 <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
                   <p className="text-[10px] text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>

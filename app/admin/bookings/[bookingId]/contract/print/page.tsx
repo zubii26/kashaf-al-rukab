@@ -52,14 +52,14 @@ export default async function PrintContractDocument({ params }: { params: Promis
       <div className="bg-white w-full max-w-[210mm] print:max-w-none print:w-full relative" style={{ minHeight: '297mm', fontFamily: "'Segoe UI', Arial, sans-serif" }}>
         
         {/* Border wrapper for styling like PDF */}
-        <div className="absolute inset-4 border-2 border-dotted border-[#C53030] print:inset-2 pointer-events-none"></div>
+        <div className="absolute inset-4 border-2 border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
 
         <div className="p-12 print:p-10 pt-16 print:pt-12" dir="rtl">
           
           {/* HEADER */}
           <div className="flex justify-between items-start mb-8">
             <div className="text-right">
-              <h1 className="text-2xl font-black text-[#C53030] mb-2">{COMPANY.nameAr}</h1>
+              <h1 className="text-2xl font-black text-[#7d333b] mb-2">{COMPANY.nameAr}</h1>
               <p className="text-sm font-bold text-[#6B7280]">س.ت: {COMPANY.crNumber}</p>
               <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
             </div>
@@ -85,26 +85,26 @@ export default async function PrintContractDocument({ params }: { params: Promis
                     <p className="text-[9px] text-[#9CA3AF] text-center">Driver<br/>Photo</p>
                   </div>
                 )}
-                <p className="text-[10px] font-bold text-[#C53030] uppercase text-center">صورة السائق</p>
+                <p className="text-[10px] font-bold text-[#7d333b] uppercase text-center">صورة السائق</p>
               </div>
               <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qrCodeUrl} alt="Barcode" width={80} height={80} style={{ border: '2px solid #14213D', borderRadius: '4px' }} />
-                <p className="text-[10px] font-bold text-[#C53030] uppercase text-center">الباركود</p>
+                <p className="text-[10px] font-bold text-[#7d333b] uppercase text-center">الباركود</p>
               </div>
             </div>
           </div>
 
           {/* TITLE */}
           <div className="text-center mb-8">
-            <div className="inline-block border-2 border-[#C53030] px-12 py-2 rounded">
-              <p className="text-xl font-black text-[#C53030]">عقد نقل على الطرق البرية</p>
+            <div className="inline-block border-2 border-[#7d333b] px-12 py-2 rounded">
+              <p className="text-xl font-black text-[#7d333b]">عقد نقل على الطرق البرية</p>
             </div>
           </div>
 
           {/* DATE */}
           <div className="mb-6">
-            <p className="font-bold text-[#C53030]">التاريخ: <span className="text-[#1F2430]">{formattedDate}</span></p>
+            <p className="font-bold text-[#7d333b]">التاريخ: <span className="text-[#1F2430]">{formattedDate}</span></p>
           </div>
 
           {/* CLAUSE */}
@@ -116,11 +116,11 @@ export default async function PrintContractDocument({ params }: { params: Promis
           {/* PARTIES */}
           <div className="mb-8 space-y-3">
             <p className="text-base">
-              <span className="font-bold text-[#C53030]">الطرف الأول : </span>
+              <span className="font-bold text-[#7d333b]">الطرف الأول : </span>
               <span className="font-bold text-[#1F2430]">{COMPANY.nameAr} ترخيص رقم: {COMPANY.licenseNumber}</span>
             </p>
             <p className="text-base">
-              <span className="font-bold text-[#C53030]">الطرف الثاني: </span>
+              <span className="font-bold text-[#7d333b]">الطرف الثاني: </span>
               <span className="font-bold text-[#1F2430]">السيد/ <span className="uppercase">{contract.party_two_name}</span></span>
             </p>
           </div>
@@ -131,10 +131,10 @@ export default async function PrintContractDocument({ params }: { params: Promis
 
           {/* TRIP DETAILS */}
           <div className="mb-8 space-y-2 text-lg">
-            <p><span className="font-black text-[#1F2430]">النقل من: </span><span className="font-bold text-[#C53030] uppercase">{contract.route_from}</span></p>
-            <p><span className="font-black text-[#1F2430]">وصولا الى: </span><span className="font-bold text-[#C53030] uppercase">{contract.route_to}</span></p>
-            <p><span className="font-black text-[#1F2430]">مدة الرحلة : </span><span className="font-bold text-[#C53030]">{contract.trip_duration || '00:00'}</span></p>
-            <p><span className="font-black text-[#1F2430]">سعر الرحلة : </span><span className="font-bold text-[#C53030]">{contract.price_type === 'deferred' ? 'آجل' : 'نقدي'} ر.س</span></p>
+            <p><span className="font-black text-[#1F2430]">النقل من: </span><span className="font-bold text-[#7d333b] uppercase">{contract.route_from}</span></p>
+            <p><span className="font-black text-[#1F2430]">وصولا الى: </span><span className="font-bold text-[#7d333b] uppercase">{contract.route_to}</span></p>
+            <p><span className="font-black text-[#1F2430]">مدة الرحلة : </span><span className="font-bold text-[#7d333b]">{contract.trip_duration || '00:00'}</span></p>
+            <p><span className="font-black text-[#1F2430]">سعر الرحلة : </span><span className="font-bold text-[#7d333b]">{contract.price_type === 'deferred' ? 'آجل' : 'نقدي'} ر.س</span></p>
           </div>
 
           {/* CANCELLATION POLICY */}
@@ -146,7 +146,7 @@ export default async function PrintContractDocument({ params }: { params: Promis
           <div className="flex justify-center mt-12 pb-12">
             {COMPANY.stamp_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={COMPANY.stamp_url} alt="Stamp" className="w-32 h-32 object-contain mix-blend-multiply" />
+              <img src={COMPANY.stamp_url} alt="Stamp" className="w-48 h-48 object-contain mix-blend-multiply" />
             ) : (
               <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
                 <p className="text-xs text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>

@@ -80,7 +80,7 @@ export default async function StandaloneInspectionPrint({
           th, td { border: 1px solid #e0e0e0; padding: 5px 8px; }
           th { background: #f9f9f9; font-weight: bold; color: #333; }
           .ok { color: #16a34a; font-weight: bold; }
-          .not_ok { color: #dc2626; font-weight: bold; }
+          .not_ok { color: #7d333b; font-weight: bold; }
           .notes-box { border: 1px solid #ddd; border-radius: 4px; padding: 10px; min-height: 40px; margin: 10px 0; font-size: 10px; }
           .declaration { border: 1px solid #1e3a5f; border-radius: 4px; padding: 10px; margin: 10px 0; font-size: 10px; color: #333; }
           .sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
@@ -186,7 +186,7 @@ export default async function StandaloneInspectionPrint({
             <div className="sig-box">
               <div>Company Stamp / ختم المؤسسة</div>
               {company.stamp_url ? (
-                <img src={company.stamp_url} alt="stamp" style={{ height: 70, objectFit: 'contain', margin: '0 auto' }} />
+                <img src={company.stamp_url} alt="stamp" style={{ height: 120, objectFit: 'contain', margin: '0 auto' }} />
               ) : (
                 <div className="stamp-area"><span style={{ fontSize: 10, color: '#aaa' }}>STAMP</span></div>
               )}
