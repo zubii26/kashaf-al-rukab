@@ -101,8 +101,14 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* جهة اليسار: صورة السائق */}
-      <div style={{ flex: '1 1 0%', display: 'flex', justifyContent: 'flex-end' }}>
+      {/* جهة اليسار: رقم اللوحة وصورة السائق */}
+      <div style={{ flex: '1 1 0%', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', gap: 16 }}>
+        {vehicle?.plate_number && (
+          <div style={{ textAlign: 'center', background: '#F7F9FC', border: '2px solid #14213D', borderRadius: 4, padding: '0 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: 60 }}>
+            <div style={{ fontSize: 10, color: '#6B7280', fontWeight: 700 }}>لوحة المركبة</div>
+            <div style={{ fontSize: 15, color: '#14213D', fontWeight: 900, fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 2 }}>{vehicle.plate_number}</div>
+          </div>
+        )}
         <div style={{ textAlign: 'center' }}>
           {driver?.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
