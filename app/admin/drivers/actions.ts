@@ -81,14 +81,15 @@ export async function createDriver(formData: FormData) {
     throw new Error('Failed to create driver profile: ' + profileError.message)
   }
 
-  // 4. Create Vehicle (if new vehicle details provided)
+  // 4. Create Vehicle (only plate number is required to trigger vehicle creation;
+  //    registration fields are optional and can be filled in later)
   let final_vehicle_id = vehicle_id
-  if (!final_vehicle_id && new_vehicle_plate && new_vehicle_type && new_vehicle_registration && new_vehicle_expiry) {
+  if (!final_vehicle_id && new_vehicle_plate?.trim()) {
     const { data: vehicle, error: vehicleError } = await adminClient.from('vehicles').insert({
-      plate_number: new_vehicle_plate,
-      vehicle_type: new_vehicle_type,
-      registration_number: new_vehicle_registration,
-      registration_expiry: new_vehicle_expiry
+      plate_number:        new_vehicle_plate.trim(),
+      vehicle_type:        new_vehicle_type?.trim()         || '',
+      registration_number: new_vehicle_registration?.trim() || null,
+      registration_expiry: new_vehicle_expiry               || null,
     }).select().single()
 
     if (vehicleError) {
