@@ -6,14 +6,22 @@ import type { ExtractedPassenger, ScanResult } from '@/lib/ai/extractDocument'
 // Re-export so consumer pages can import from one place
 export type { ExtractedPassenger, ScanResult }
 
+// ─── PDF detection ───────────────────────────────────────────────────────────
+function isPdf(file: File): boolean {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+}
+
 // ─── Image resize (cost control + accuracy) ──────────────────────────────────
 // Caps the long edge at 1536px and re-encodes as JPEG@85% before any upload.
 // Raised from 1024px to improve digit legibility on dense ID documents.
 // Gemini charges a fixed ~258 tokens per image regardless of resolution,
-// so there is zero API cost increase.
+// so there is zero API cost increase. PDFs are passed through as-is.
 const MAX_PX = 1536
 
 async function resizeImage(file: File): Promise<File> {
+  // PDFs cannot be drawn on a canvas — skip resizing
+  if (isPdf(file)) return file
+
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -183,7 +191,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
-    input.accept = 'image/*'
+    input.accept = 'image/*,application/pdf'
     input.capture = '' // removed: causes issues on Android; camera shows as option anyway
     input.style.display = 'none'
 
@@ -209,10 +217,10 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const items = Array.from(e.clipboardData?.items ?? [])
-      const imageItems = items.filter(i => i.type.startsWith('image/'))
-      if (imageItems.length === 0) return
+      const docItems = items.filter(i => i.type.startsWith('image/') || i.type === 'application/pdf')
+      if (docItems.length === 0) return
       e.preventDefault()
-      const files = imageItems.map(i => i.getAsFile()).filter((f): f is File => f !== null)
+      const files = docItems.map(i => i.getAsFile()).filter((f): f is File => f !== null)
       if (files.length > 0) enqueue(files)
     }
     window.addEventListener('paste', onPaste)
@@ -300,7 +308,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
               Click the button, drag &amp; drop, or press{' '}
               <kbd className="px-1 py-0.5 bg-border rounded text-text-primary font-mono text-xs">Ctrl+V</kbd>
-              {' '}to paste. Upload a passport, visa, or a full passenger list screenshot.
+              {' '}to paste. Supports passport photos, visa images, passenger list screenshots, and <strong>PDF files</strong>.
             </p>
             <button
               type="button"
@@ -311,7 +319,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Select Document Image
+              Select Document (Image or PDF)
             </button>
           </div>
         )}

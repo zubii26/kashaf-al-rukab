@@ -90,10 +90,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── MIME guard ──────────────────────────────────────────────────────────
-    if (file.type && !file.type.startsWith('image/')) {
+    // ── MIME guard ─────────────────────────────────────────────────────────
+    const isImage = file.type.startsWith('image/')
+    const isPdf   = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (file.type && !isImage && !isPdf) {
       return NextResponse.json(
-        { error: 'Unsupported file type. Please upload an image.' },
+        { error: 'Unsupported file type. Please upload an image or PDF.' },
         { status: 400 }
       )
     }
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
 
     const base64Image = buffer.toString('base64')
     const mimeType = (
+      isPdf                      ? 'application/pdf' :
       file.type === 'image/png'  ? 'image/png'  :
       file.type === 'image/webp' ? 'image/webp' :
       file.type === 'image/gif'  ? 'image/gif'  :
@@ -118,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     // ── Store image in private Supabase Storage ──────────────────────────────
     const admin = createAdminClient()
-    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
+    const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const storagePath = `scans/${user.id}/${Date.now()}.${ext}`
 
     const { error: uploadError } = await admin.storage
