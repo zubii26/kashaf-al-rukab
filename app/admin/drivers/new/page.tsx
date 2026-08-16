@@ -49,20 +49,18 @@ export default async function NewDriverPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Nationality</label>
+                  <label className="text-sm font-medium text-text-primary">Nationality <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
                   <input
                     name="nationality"
                     type="text"
-                    required
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Mobile Number</label>
+                  <label className="text-sm font-medium text-text-primary">Mobile Number <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
                   <input
                     name="mobile_number"
                     type="tel"
-                    required
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
@@ -70,20 +68,18 @@ export default async function NewDriverPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Residence Number</label>
+                  <label className="text-sm font-medium text-text-primary">Residence Number <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
                   <input
                     name="residence_number"
                     type="text"
-                    required
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Card Number (Rukab)</label>
+                  <label className="text-sm font-medium text-text-primary">Card Number (Rukab) <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
                   <input
                     name="card_number"
                     type="text"
-                    required
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

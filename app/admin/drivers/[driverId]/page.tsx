@@ -54,11 +54,10 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Mobile Number</label>
+                  <label className="text-sm font-medium text-text-primary">Mobile Number <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
                   <input
                     name="mobile_number"
                     type="tel"
-                    required
                     defaultValue={driver.mobile_number}
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
