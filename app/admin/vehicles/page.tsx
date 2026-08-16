@@ -1,18 +1,21 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { Suspense } from 'react'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PageLayout } from '@/components/layout/page-layout'
 import { PrimaryButton } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { deleteVehicle } from './actions'
-
 import { SearchInput } from '@/components/admin/SearchInput'
+
+// Always render fresh — admin list pages must use service role to bypass RLS.
+export const dynamic = 'force-dynamic'
 
 export default async function VehiclesPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const resolvedParams = await searchParams
   const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ''
 
@@ -35,7 +38,9 @@ export default async function VehiclesPage({
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <SearchInput placeholder="Search by plate, type, or registration..." />
+        <Suspense fallback={<div className="h-10 w-full max-w-md bg-border/30 rounded-md" />}>
+          <SearchInput placeholder="Search by plate, type, or registration..." />
+        </Suspense>
         <div className="text-sm text-text-secondary">
           Showing {vehicles?.length || 0} of {totalCount || 0} vehicles
         </div>

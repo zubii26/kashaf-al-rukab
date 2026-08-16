@@ -1,17 +1,24 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { Suspense } from 'react'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PageLayout } from '@/components/layout/page-layout'
 import { PrimaryButton } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-
 import { SearchInput } from '@/components/admin/SearchInput'
+
+// Always render fresh — never serve from Next.js Full Route Cache.
+// Admin list pages must bypass RLS entirely using the service role key.
+export const dynamic = 'force-dynamic'
 
 export default async function DriversPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const supabase = await createClient()
+  // createAdminClient uses SUPABASE_SERVICE_ROLE_KEY — bypasses RLS completely.
+  // Using the session-based anon client here caused RLS to intermittently fall
+  // back to driver_read_self, returning only 1 driver when is_admin() failed.
+  const supabase = createAdminClient()
   const resolvedParams = await searchParams
   const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ''
   
@@ -46,7 +53,9 @@ export default async function DriversPage({
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <SearchInput placeholder="Search by name, mobile, nationality..." />
+        <Suspense fallback={<div className="h-10 w-full max-w-md bg-border/30 rounded-md" />}>
+          <SearchInput placeholder="Search by name, mobile, nationality..." />
+        </Suspense>
         <div className="text-sm text-text-secondary">
           Showing {drivers?.length || 0} of {totalCount || 0} drivers
         </div>
