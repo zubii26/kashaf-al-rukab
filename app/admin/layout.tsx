@@ -42,8 +42,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 w-64 bg-surface border-r border-border transform transition-transform duration-200 ease-in-out z-30 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col`}>
-        <div className="h-16 flex items-center justify-center border-b border-border">
-          <div className="font-bold text-xl text-primary">Kashaf Al Rukab</div>
+        <div className="h-16 flex items-center justify-center border-b border-border px-3">
+          <div className="text-center">
+            <div className="font-bold text-sm text-primary leading-tight">مؤسسة ماهر السفر للنقل</div>
+            <div className="text-xs text-text-secondary font-medium">Maher Al Safar Transport</div>
+          </div>
         </div>
         
         <nav className="flex-1 py-4 space-y-0.5 px-3 overflow-y-auto">

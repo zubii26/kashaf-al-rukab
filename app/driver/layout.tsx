@@ -27,8 +27,9 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-background flex flex-col text-text-primary">
       {/* Top Navigation Bar — hidden when printing */}
       <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm print:hidden">
-        <div className="font-bold text-xl text-primary flex items-center">
-          Kashaf Al Rukab
+        <div className="font-bold text-xl text-primary flex flex-col items-start leading-tight">
+          <span className="text-base font-bold">مؤسسة ماهر السفر للنقل</span>
+          <span className="text-xs font-medium text-text-secondary">Maher Al Safar Transport</span>
         </div>
         
         <nav className="hidden md:flex flex-1 items-center justify-center space-x-2 px-8">

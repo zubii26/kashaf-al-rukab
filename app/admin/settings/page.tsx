@@ -49,7 +49,7 @@ export default async function SettingsPage() {
                     name="name_en"
                     type="text"
                     required
-                    defaultValue={settings?.name_en ?? 'Kashaf Al Rukab Transport'}
+                    defaultValue={settings?.name_en ?? 'Maher Al Safar Transport'}
                     className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
                 </div>

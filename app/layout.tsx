@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kashaf Al Rukab Transport",
-  description: "Travel Document & Driver Management System",
+  title: "مؤسسة ماهر السفر للنقل | Maher Al Safar Transport",
+  description: "نظام إدارة الوثائق والسائقين | Driver & Document Management System",
 };
 
 export default function RootLayout({
