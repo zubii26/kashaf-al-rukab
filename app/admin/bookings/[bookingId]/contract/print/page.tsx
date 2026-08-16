@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import PrintButton from '@/app/driver/trips/[id]/print/print-button'
 import { getCompanySettings } from '@/lib/company-settings'
 
-const LEGAL_CLAUSE = `تم ابرام هذا العقد بين المتعاقدين بناءا على المادة (39) التاسعة والثلاثون من اللائحة المنظمة لنشاط النقل المتخصص وتأجير وتوجيه الحافلات، وبناءا على الفقرة (1) من المادة (39) والتي تنص على أن يجب على الناقل ابرام عقد نقل مع الأطراف المحددين في المادة (40) قبل تنفيذ عمليات النقل على الطرق البرية`
+const LEGAL_CLAUSE = `تم ابرام هذا العقد بين المتعاقدين بناء على المادة (39) التاسعة والثلاثون من اللائحة المنظمة لنشاط النقل المتخصص وتأجير وتوجيه الحافلات، وبناءا على الفقرة (1) من المادة (39) والتي تنص على أن يجب على الناقل ابرام عقد نقل مع الأطراف المحددين في المادة (40) قبل تنفيذ عمليات النقل على الطرق البرية وبما لا يخالف أحكام هذه اللائحة ووفقاً للآلية التي تحددها هيئة النقل`
 const CANCELLATION_POLICY = `في حال الغاء التعاقد لاي سبب شخصي او اسباب اخرى تتعلق في الحجوزات او الانظمه تكون سياسة الالغاء والاستبدال حسب نظام وزارة التجارة السعودي. في حالة الحجز وتم الالغاء قبل موعد الرحلة باكثر من 24 ساعة يتم استرداد المبلغ كامل. في حالة طلب الطرف الثاني الحجز من خلال الموقع الالكتروني للمؤسسه يعتبر هذا الحجز وموافقته على الشروط والاحكام بالموقع الالكتروني هو موافقة على هذا العقد لتنفيذ عملية النقل المتفق عليها مع الطرف الأول بواسطة حافلات المؤسسة المرخصة والمتوافقة مع الاشتراطات المقررة من هيئة النقل.`
 
 export default async function PrintContractDocument({ params }: { params: Promise<{ bookingId: string }> }) {
@@ -33,7 +33,8 @@ export default async function PrintContractDocument({ params }: { params: Promis
   const driver = trip?.drivers as any
 
   const dateObj = new Date(contract.contract_date)
-  const formattedDate = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-')
+  // YYYY-MM-DD format to match the reference document design
+  const formattedDate = dateObj.toISOString().split('T')[0]
 
   const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const verifyUrl = `${APP_URL}/verify-contract/${contract.id}`
