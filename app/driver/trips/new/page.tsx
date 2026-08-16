@@ -204,7 +204,6 @@ export default function NewDriverTripPage() {
             <input 
               type="text" 
               name="first_guest_id"
-              required 
               value={firstGuest.id_number}
               onChange={e => { setFirstGuest({ ...firstGuest, id_number: e.target.value }); setAutoFilled(af => { const n = new Set(af); n.delete('first_id'); return n }) }}
               className="w-full bg-background border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary text-right md:text-left"
