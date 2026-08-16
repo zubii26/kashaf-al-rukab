@@ -4,11 +4,19 @@ import { PageLayout } from '@/components/layout/page-layout'
 import { PrimaryButton } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
-export default async function DriversPage() {
+import { SearchInput } from '@/components/admin/SearchInput'
+
+export default async function DriversPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
+  const resolvedParams = await searchParams
+  const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ''
   
-  // We want to fetch drivers and their assigned vehicles
-  const { data: drivers } = await supabase
+  // Base query
+  let query = supabase
     .from('drivers')
     .select(`
       *,
@@ -18,6 +26,16 @@ export default async function DriversPage() {
     `)
     .order('created_at', { ascending: false })
 
+  // Apply search filter if query exists
+  if (q) {
+    query = query.or(`full_name.ilike.%${q}%,mobile_number.ilike.%${q}%,card_number.ilike.%${q}%,nationality.ilike.%${q}%`)
+  }
+
+  const { data: drivers } = await query
+
+  // We need to count total drivers to show X of Y if we want, but let's just show filtered count
+  const { count: totalCount } = await supabase.from('drivers').select('*', { count: 'exact', head: true })
+
   return (
     <PageLayout>
       <div className="flex justify-between items-center mb-6">
@@ -25,6 +43,13 @@ export default async function DriversPage() {
         <Link href="/admin/drivers/new">
           <PrimaryButton>Add Driver</PrimaryButton>
         </Link>
+      </div>
+
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <SearchInput placeholder="Search by name, mobile, nationality..." />
+        <div className="text-sm text-text-secondary">
+          Showing {drivers?.length || 0} of {totalCount || 0} drivers
+        </div>
       </div>
 
       <Card>

@@ -5,9 +5,25 @@ import { PrimaryButton } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { deleteVehicle } from './actions'
 
-export default async function VehiclesPage() {
+import { SearchInput } from '@/components/admin/SearchInput'
+
+export default async function VehiclesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
-  const { data: vehicles } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false })
+  const resolvedParams = await searchParams
+  const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ''
+
+  let query = supabase.from('vehicles').select('*').order('created_at', { ascending: false })
+
+  if (q) {
+    query = query.or(`plate_number.ilike.%${q}%,vehicle_type.ilike.%${q}%,registration_number.ilike.%${q}%`)
+  }
+
+  const { data: vehicles } = await query
+  const { count: totalCount } = await supabase.from('vehicles').select('*', { count: 'exact', head: true })
 
   return (
     <PageLayout>
@@ -16,6 +32,13 @@ export default async function VehiclesPage() {
         <Link href="/admin/vehicles/new">
           <PrimaryButton>Add Vehicle</PrimaryButton>
         </Link>
+      </div>
+
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <SearchInput placeholder="Search by plate, type, or registration..." />
+        <div className="text-sm text-text-secondary">
+          Showing {vehicles?.length || 0} of {totalCount || 0} vehicles
+        </div>
       </div>
 
       <Card>
