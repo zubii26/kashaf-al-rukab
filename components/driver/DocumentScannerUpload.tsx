@@ -111,58 +111,63 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   const onSuccessRef = useRef(onBatchScanSuccess)
   useEffect(() => { onSuccessRef.current = onBatchScanSuccess }, [onBatchScanSuccess])
 
-  // ─── Core queue processor ────────────────────────────────────────────────
+  // ─── Core queue processor (parallel) ────────────────────────────────────
+  // All queued images are resized + scanned concurrently via Promise.all.
+  // This reduces total wait time from N×T → ~T for N images.
   const drainQueue = useCallback(async () => {
     if (processingRef.current || queueRef.current.length === 0) return
 
     processingRef.current = true
-    const total = queueRef.current.length
+    const files = queueRef.current.splice(0) // drain entire queue at once
+    const total = files.length
     setProgress({ current: 0, total })
     setStatus('processing')
     setErrorMsg(null)
     setLastWarnings([])
 
+    // Track how many have finished (for live progress counter)
+    let doneCount = 0
+    const incrementDone = () => {
+      doneCount++
+      setProgress({ current: doneCount, total })
+    }
+
+    // Process all images in parallel
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const resized = await resizeImage(file)
+        pendingFileRef.current = resized // last file kept for manual retry
+        const result = await scanWithRetry(
+          resized,
+          (attempt, max) => {
+            setStatus('retrying')
+            setRetryInfo({ attempt, max })
+          },
+        )
+        setStatus('processing') // restore after any retry
+        incrementDone()
+        return result
+      })
+    )
+
     let successCount = 0
+    const allWarnings: string[] = []
 
-    while (queueRef.current.length > 0) {
-      const file = queueRef.current.shift()!
-      const current = total - queueRef.current.length
-      setProgress({ current, total })
-
-      // Resize client-side before sending (cost control)
-      const resized = await resizeImage(file)
-
-      // Keep the resized file in case the user manually retries
-      pendingFileRef.current = resized
-
-      const { ok, data } = await scanWithRetry(
-        resized,
-        (attempt, max) => {
-          setStatus('retrying')
-          setRetryInfo({ attempt, max })
-        },
-      )
-
-      setStatus('processing') // restore after retry loop
-
+    for (const { ok, data } of results) {
       const json = data as Record<string, unknown>
-
       if (!ok) {
         const errText = (json?.error as string) || 'Scan failed. Tap retry or try another image.'
         setErrorMsg(errText)
         continue
       }
-
-      // Parse as ScanResult
       const scanResult = json as ScanResult
-      if (scanResult.warnings && scanResult.warnings.length > 0) {
-        setLastWarnings(scanResult.warnings)
-      }
-
+      if (scanResult.warnings?.length) allWarnings.push(...scanResult.warnings)
       onSuccessRef.current(scanResult)
-      pendingFileRef.current = null
       successCount++
     }
+
+    if (allWarnings.length > 0) setLastWarnings(allWarnings)
+    if (successCount > 0) pendingFileRef.current = null
 
     processingRef.current = false
     setStatus(successCount > 0 ? 'done' : 'error')

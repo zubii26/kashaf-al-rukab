@@ -119,19 +119,19 @@ export async function POST(req: NextRequest) {
       'image/jpeg'
     )
 
-    // ── Store image in private Supabase Storage ──────────────────────────────
+    // ── Store image in private Supabase Storage (fire-and-forget) ───────────
+    // Upload runs in the background — it does NOT delay the AI response.
     const admin = createAdminClient()
     const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
     const storagePath = `scans/${user.id}/${Date.now()}.${ext}`
 
-    const { error: uploadError } = await admin.storage
+    // Intentionally not awaited — storage is a backup, not in the hot path
+    admin.storage
       .from('document-images')
       .upload(storagePath, buffer, { contentType: mimeType, upsert: false })
-
-    if (uploadError) {
-      console.error('[scan-document] Storage upload error:', uploadError.message)
-      // Non-fatal: scan still works even if storage fails
-    }
+      .then(({ error }) => {
+        if (error) console.error('[scan-document] Storage upload error:', error.message)
+      })
 
     // ── Call Gemini 3.1 Flash-Lite via @google/genai SDK ─────────────────────
     // Model name + config are isolated in lib/ai/extractDocument.ts.
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
     const result: ScanResult = {
       passengers: validPassengers,
       warnings,
-      document_image_url: uploadError ? null : storagePath,
+      document_image_url: storagePath,
     }
 
     // Cache successful extraction result
