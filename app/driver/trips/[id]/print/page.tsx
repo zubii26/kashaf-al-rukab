@@ -81,9 +81,14 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #14213D', paddingBottom: 8 }}>
       {/* جهة اليمين: معلومات الشركة */}
       <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 20, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
-        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} <br/> ترخيص: {COMPANY.licenseNumber}</div>
-      </div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#C53030' }}>{COMPANY.nameAr}</div>
+          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>س.ت: {COMPANY.crNumber} <br/> ترخيص: {COMPANY.licenseNumber}</div>
+          {COMPANY.contactPhone && (
+            <div style={{ fontSize: 12, color: '#14213D', fontWeight: 700, marginTop: 3, direction: 'ltr', textAlign: 'left' }}>
+              📞 {COMPANY.contactPhone}
+            </div>
+          )}
+        </div>
       
       {/* المنتصف: الشعار والعنوان */}
       <div style={{ flex: '1.5 1 0%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

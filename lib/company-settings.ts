@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS: CompanySettings = {
   name_en: 'Maher Transport',
   license_number: '35/00002393',
   cr_number: '7031314748',
-  contact_phone: '',
+  contact_phone: '+966 50 797 5123',
   logo_url: '/logo.jpeg',
   stamp_url: '/stamp.png',
   updated_at: new Date().toISOString(),
@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS: CompanySettings = {
   nameEn: 'Maher Transport',
   licenseNumber: '35/00002393',
   crNumber: '7031314748',
-  contactPhone: '',
+  contactPhone: '+966 50 797 5123',
 }
 
 function addAliases(data: Omit<CompanySettings, 'nameAr' | 'nameEn' | 'licenseNumber' | 'crNumber' | 'contactPhone'>): CompanySettings {
