@@ -48,13 +48,16 @@ export default function NewDriverTripPage() {
     setAutoFilled(prev => { const next = new Set(prev); next.delete(`p${index}_${field}`); return next })
   }
 
-  // ── Scan success: store in pendingBatch for review ────────────────────────
+  // ── Scan success: ACCUMULATE into pendingBatch for review ──────────────────
+  // Uses functional setState so each successive scan MERGES its passengers
+  // into the existing pendingBatch instead of replacing it.  This means
+  // scanning 3 separate IDs correctly shows all 3 passengers in one table.
   const handleBatchScanSuccess = useCallback((data: ScanResult) => {
     setScannerVisible(false)
-    setPendingBatch({
-      passengers: data.passengers,
-      warnings: data.warnings,
-    })
+    setPendingBatch(prev => ({
+      passengers: [...(prev?.passengers ?? []), ...data.passengers],
+      warnings:   [...(prev?.warnings   ?? []), ...data.warnings],
+    }))
   }, [])
 
   // ── Review table: edit a pending passenger field ──────────────────────────

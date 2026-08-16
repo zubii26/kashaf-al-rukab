@@ -58,12 +58,14 @@ export default function EditTripForm({ tripId, initialTrip, initialPassengers }:
     setPassengers(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
   }
 
-  // ── Scan success: store in pendingBatch for review ────────────────────────
+  // ── Scan success: ACCUMULATE into pendingBatch for review ──────────────────
+  // Uses functional setState so each successive scan MERGES its passengers
+  // into the existing pendingBatch instead of replacing it.
   const handleBatchScanSuccess = (data: ScanResult) => {
-    setPendingBatch({
-      passengers: data.passengers,
-      warnings: data.warnings,
-    })
+    setPendingBatch(prev => ({
+      passengers: [...(prev?.passengers ?? []), ...data.passengers],
+      warnings:   [...(prev?.warnings   ?? []), ...data.warnings],
+    }))
   }
 
   // ── Review table: edit a pending passenger field ──────────────────────────
