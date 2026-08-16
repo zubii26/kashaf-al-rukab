@@ -203,107 +203,130 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #7d333b', pointerEvents: 'none' }} />
-          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ padding: '16px 28px', direction: 'rtl', minHeight: '297mm', display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-            {/* الترويسة الموحدة */}
-            <PrintHeader title="بيانات السائق والركاب" />
-
-            {/* معلومات الرحلة */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 4 }}>
-              <tbody>
-                <tr>
-                  <td style={S.lcell}>رقم الرحلة</td>
-                  <td style={{ ...S.cell, fontWeight: 700, color: '#14213D' }}>#{trip.trip_number}</td>
-                  <td style={S.lcell}>التاريخ</td>
-                  <td style={S.cell}>{dateAR}</td>
-                  <td style={S.lcell}>اليوم</td>
-                  <td style={S.cell}>{dayAR}</td>
-                  <td style={S.lcell}>الوقت</td>
-                  <td style={S.cell}>{trip.trip_time || '—'}</td>
-                </tr>
-                <tr>
-                  <td style={S.lcell}>من</td>
-                  <td style={{ ...S.cell, fontWeight: 600, textTransform: 'uppercase' }}>{trip.pickup_location}</td>
-                  <td style={S.lcell}>إلى</td>
-                  <td style={{ ...S.cell, fontWeight: 600, textTransform: 'uppercase' }} colSpan={5}>{trip.dropoff_location}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* السائق */}
-            <div style={{ marginTop: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <div style={{ width: 3, height: 16, background: '#14213D' }} />
-                <span style={{ fontWeight: 900, color: '#14213D', fontSize: 13 }}>بيانات السائق والمركبة</span>
+            {/* ── الترويسة: شعار + اسم الشركة ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #14213D', paddingBottom: 10, marginBottom: 6 }}>
+              {/* يمين: الاسم العربي */}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#7d333b' }}>{COMPANY.nameAr}</div>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead><tr>
-                  <th style={S.hcell}>اسم السائق</th>
-                  <th style={S.hcell}>الجنسية</th>
-                  <th style={S.hcell}>رقم البطاقة</th>
-                  <th style={S.hcell}>نوع المركبة</th>
-                  <th style={S.hcell}>رقم اللوحة</th>
-                </tr></thead>
-                <tbody><tr>
-                  <td style={{ ...S.cell, fontWeight: 600, textTransform: 'uppercase' }}>{driver?.full_name || '—'}</td>
-                  <td style={S.cell}>{driver?.nationality || '—'}</td>
-                  <td style={{ ...S.cell, fontFamily: 'monospace' }}>{driver?.card_number || '—'}</td>
-                  <td style={{ ...S.cell, textTransform: 'uppercase' }}>{vehicle?.vehicle_type || '—'}</td>
-                  <td style={{ ...S.cell, fontFamily: 'monospace', fontWeight: 700 }}>{vehicle?.plate_number || '—'}</td>
-                </tr></tbody>
+              {/* وسط: الشعار */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 70, objectFit: 'contain', maxWidth: 200 }} />
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#7d333b', textAlign: 'center' }}>بيانات السائق والركاب</div>
+              </div>
+              {/* يسار: الاسم الإنجليزي + الترخيص */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', direction: 'ltr', textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: '#7d333b' }}>{COMPANY.nameEn}</div>
+                <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>L.N:{COMPANY.licenseNumber}</div>
+                <div style={{ fontSize: 11, color: '#6B7280' }}>C.R:{COMPANY.crNumber}</div>
+              </div>
+            </div>
+
+            {/* ── عنوان فرعي ── */}
+            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#7d333b', marginBottom: 8 }}>
+              لمؤسسة {COMPANY.nameAr}
+            </div>
+
+            {/* ── شريط التاريخ والوقت واليوم ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F7F9FC', border: '1px solid #E2E6EC', borderRadius: 4, padding: '6px 14px', marginBottom: 6, fontSize: 14, fontWeight: 700 }}>
+              <div>
+                <span style={{ color: '#7d333b' }}>التاريخ : </span>
+                <span style={{ color: '#14213D' }}>{dateObj.toISOString().split('T')[0]}</span>
+              </div>
+              <div>
+                <span style={{ color: '#7d333b' }}>وقت الرحلة : </span>
+                <span style={{ color: '#14213D' }}>{trip.trip_time || '—'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#7d333b' }}>اليوم : </span>
+                <span style={{ color: '#14213D' }}>{dayAR}</span>
+              </div>
+            </div>
+
+            {/* ── شريط المسار ── */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, background: '#F7F9FC', border: '1px solid #E2E6EC', borderRadius: 4, padding: '6px 14px', marginBottom: 10, fontSize: 15, fontWeight: 900, flexWrap: 'wrap', textAlign: 'center' }}>
+              <span><span style={{ color: '#7d333b' }}>رحلة من</span> <span style={{ color: '#14213D', textTransform: 'uppercase' }}>{trip.pickup_location}</span></span>
+              <span style={{ color: '#6B7280', fontSize: 18 }}>←</span>
+              <span><span style={{ color: '#7d333b' }}>الى</span> <span style={{ color: '#14213D', textTransform: 'uppercase' }}>{trip.dropoff_location}</span></span>
+            </div>
+
+            {/* ── جدول السائق ── */}
+            <div style={{ marginBottom: 12 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    {['اسم السائق', 'الجنسية', 'رقم البطاقة', 'نوع السيارة', 'رقم اللوحة'].map(h => (
+                      <th key={h} style={{ border: '1px solid #14213D', padding: '5px 8px', background: '#14213D', color: 'white', fontWeight: 700, textAlign: 'center', fontSize: 12 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>{driver?.full_name || '—'}</td>
+                    <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>{driver?.nationality || '—'}</td>
+                    <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 12 }}>{driver?.card_number || '—'}</td>
+                    <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>{vehicle?.vehicle_type || '—'}</td>
+                    <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 900, fontSize: 13 }}>{vehicle?.plate_number || '—'}</td>
+                  </tr>
+                </tbody>
               </table>
             </div>
 
-            {/* الركاب — فقط الركاب الحقيقيين */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 4 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 3, height: 16, background: '#14213D' }} />
-                  <span style={{ fontWeight: 900, color: '#14213D', fontSize: 13 }}>قائمة الركاب</span>
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '2px 8px' }}>
-                  المجموع: {passengers.length}
-                </span>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead><tr>
-                  <th style={{ ...S.hcell, textAlign: 'center', width: 28 }}>#</th>
-                  <th style={S.hcell}>اسم الراكب</th>
-                  <th style={{ ...S.hcell, width: 100 }}>الجنسية</th>
-                  <th style={{ ...S.hcell, width: 130 }}>رقم الجواز / الهوية</th>
-                </tr></thead>
+            {/* ── عنوان بيانات الركاب ── */}
+            <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: '#7d333b', marginBottom: 8, letterSpacing: 0.5 }}>
+              بيانات الركاب
+            </div>
+
+            {/* ── جدول الركاب ── */}
+            <div style={{ flex: 1 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    {['#', 'اسم العميل', 'الجنسية', 'رقم الهوية/الجواز'].map((h, i) => (
+                      <th key={h} style={{
+                        border: '1px solid #7d333b',
+                        padding: '6px 8px',
+                        background: 'white',
+                        color: '#7d333b',
+                        fontWeight: 900,
+                        textAlign: 'center',
+                        fontSize: 12,
+                        width: i === 0 ? 32 : i === 2 ? 90 : i === 3 ? 130 : undefined,
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
                   {passengers.map((p: any, i: number) => (
-                    <tr key={i} style={{ background: i % 2 === 1 ? '#F7F9FC' : 'white' }}>
-                      <td style={{ ...S.cell, textAlign: 'center', fontWeight: 700, color: '#14213D' }}>{i + 1}</td>
-                      <td style={{ ...S.cell, fontWeight: 600, textTransform: 'uppercase' }}>{p.full_name}</td>
-                      <td style={S.cell}>{p.nationality}</td>
-                      <td style={{ ...S.cell, fontFamily: 'monospace' }}>{p.passport_number}</td>
+                    <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#F7F9FC' }}>
+                      <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, color: '#14213D', fontSize: 12 }}>.{i + 1}</td>
+                      <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>{p.full_name}</td>
+                      <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: 12 }}>{p.nationality}</td>
+                      <td style={{ border: '1px solid #E2E6EC', padding: '5px 8px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 12 }}>{p.passport_number}</td>
                     </tr>
                   ))}
                   {passengers.length === 0 && (
-                    <tr><td colSpan={4} style={{ ...S.cell, textAlign: 'center', color: '#9CA3AF' }}>لا يوجد ركاب مضافون</td></tr>
+                    <tr><td colSpan={4} style={{ border: '1px solid #E2E6EC', padding: '10px', textAlign: 'center', color: '#9CA3AF' }}>لا يوجد ركاب مضافون</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* التذييل */}
-            <div style={{ borderTop: '2px solid #14213D', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-              <div style={{ fontSize: 11, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
-              <div style={{ display: 'flex', gap: 40, textAlign: 'center', alignItems: 'flex-end' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#14213D', marginBottom: 20 }}>توقيع السائق</div>
-                  <div style={{ width: 90, borderBottom: '1px solid #14213D' }} />
-                </div>
-                {COMPANY.stamp_url && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#14213D', marginBottom: 4 }}>الختم الرسمي</div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={COMPANY.stamp_url} alt="الختم" style={{ width: 120, height: 120, objectFit: 'contain' }} />
-                  </div>
-                )}
+            {/* ── التذييل: عدد الركاب + الختم ── */}
+            <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '2px solid #14213D', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 12, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '3px 12px', borderRadius: 4 }}>
+                إجمالي الركاب: {passengers.length}
               </div>
+              {COMPANY.stamp_url && (
+                <div style={{ textAlign: 'center' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={COMPANY.stamp_url} alt="الختم" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                </div>
+              )}
             </div>
 
           </div>
