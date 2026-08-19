@@ -1,9 +1,11 @@
-import { notFound } from 'next/navigation'
+﻿import { notFound } from 'next/navigation'
+import { AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageLayout } from '@/components/layout/page-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { updateDriver } from '../actions'
+import DeleteDriverButton from '@/components/admin/DeleteDriverButton'
 import Link from 'next/link'
 
 export default async function EditDriverPage({ params }: { params: Promise<{ driverId: string }> }) {
@@ -13,8 +15,10 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
   const { data: driver } = await supabase.from('drivers').select('*').eq('id', driverId).single()
   if (!driver) notFound()
 
-  // Fetch vehicles for the dropdown
-  const { data: vehicles } = await supabase.from('vehicles').select('id, plate_number, vehicle_type').order('plate_number')
+  const { data: vehicles } = await supabase
+    .from('vehicles')
+    .select('id, plate_number, vehicle_type')
+    .order('plate_number')
 
   return (
     <PageLayout>
@@ -101,7 +105,6 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
                     ))}
                   </select>
                 </div>
-                
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-text-primary">Status</label>
                   <select
@@ -124,6 +127,30 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
             </form>
           </CardContent>
         </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-danger/30">
+          <CardHeader>
+            <CardTitle className="text-danger flex items-center gap-2">
+              <AlertTriangle size={18} />
+              Danger Zone
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-6">
+              <div>
+                <p className="text-sm font-medium text-text-primary">Delete this driver&apos;s account permanently.</p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  This removes their profile and login access. This action cannot be undone.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <DeleteDriverButton driverId={driver.id} driverName={driver.full_name} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </PageLayout>
   )

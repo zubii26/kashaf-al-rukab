@@ -1,3 +1,6 @@
+// Extend serverless timeout to 30 s — Gemini Flash calls can take 12-15 s
+export const maxDuration = 30
+
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { createHash } from 'crypto'

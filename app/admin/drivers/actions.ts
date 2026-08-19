@@ -1,34 +1,72 @@
-'use server'
+﻿'use server'
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function createDriver(formData: FormData) {
-  const adminClient = createAdminClient()
-  const supabase = await createClient() // For non-auth DB operations
+// ─── Shared Types ────────────────────────────────────────────────────────────
 
-  const password = formData.get('password') as string
-  
-  const full_name = formData.get('full_name') as string
-  const nationality = formData.get('nationality') as string
-  const mobile_number = formData.get('mobile_number') as string
-  const residence_number = formData.get('residence_number') as string
-  const card_number = formData.get('card_number') as string
-  const vehicle_id = formData.get('vehicle_id') as string | null
-  const new_vehicle_plate = formData.get('new_vehicle_plate') as string | null
-  const new_vehicle_type = formData.get('new_vehicle_type') as string | null
+type ActionError = { error: string }
+type ActionSuccess = { success: true }
+
+// ─── createDriver ────────────────────────────────────────────────────────────
+
+export type CreateDriverState = ActionError | null
+
+export async function createDriver(
+  prevState: CreateDriverState,
+  formData: FormData
+): Promise<CreateDriverState> {
+  const adminClient = createAdminClient()
+
+  const password                 = formData.get('password') as string
+  const full_name                = (formData.get('full_name') as string)?.trim()
+  const nationality              = formData.get('nationality') as string
+  const mobile_number            = formData.get('mobile_number') as string
+  const residence_number         = formData.get('residence_number') as string
+  const card_number              = formData.get('card_number') as string
+  const vehicle_id               = formData.get('vehicle_id') as string | null
+  const new_vehicle_plate        = (formData.get('new_vehicle_plate') as string | null)?.trim()
+  const new_vehicle_type         = formData.get('new_vehicle_type') as string | null
   const new_vehicle_registration = formData.get('new_vehicle_registration') as string | null
-  const new_vehicle_expiry = formData.get('new_vehicle_expiry') as string | null
-  const photo_file = formData.get('photo_file') as File | null
+  const new_vehicle_expiry       = formData.get('new_vehicle_expiry') as string | null
+  const photo_file               = formData.get('photo_file') as File | null
+
+  if (!full_name) return { error: 'Full name is required.' }
+  if (!password)  return { error: 'Password is required.' }
+
+  // Pre-check: duplicate driver name (ilike so casing does not matter)
+  const { data: existingDrivers } = await adminClient
+    .from('drivers')
+    .select('id')
+    .filter('full_name', 'ilike', full_name)
+
+  if (existingDrivers && existingDrivers.length > 0) {
+    return {
+      error: `A driver named "${full_name}" already exists. Each driver must have a unique name. Contact the admin to resolve the duplicate.`,
+    }
+  }
+
+  // Pre-check: duplicate vehicle plate
+  if (new_vehicle_plate) {
+    const { data: existingVehicle } = await adminClient
+      .from('vehicles')
+      .select('id')
+      .eq('plate_number', new_vehicle_plate)
+      .maybeSingle()
+
+    if (existingVehicle) {
+      return {
+        error: `A vehicle with plate number "${new_vehicle_plate}" already exists. Use the vehicle assignment dropdown to assign the existing vehicle to this driver instead.`,
+      }
+    }
+  }
 
   // Auto-generate a unique internal email from the driver's name.
   // Drivers log in with their name + password, so email is just an
   // internal Supabase Auth identifier — never shown to the driver.
-  // A random suffix ensures uniqueness even if two drivers share a name.
   const nameSlug = full_name
-    .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^\w-]/g, '') // strip non-ASCII (Arabic, etc.)
@@ -44,10 +82,15 @@ export async function createDriver(formData: FormData) {
   })
 
   if (authError || !authData.user) {
-    throw new Error(authError?.message || 'Failed to create auth user')
+    return { error: authError?.message || 'Failed to create login account. Please try again.' }
   }
 
   const userId = authData.user.id
+
+  // Helper: rollback auth user on any subsequent failure
+  async function rollback() {
+    await adminClient.auth.admin.deleteUser(userId)
+  }
 
   // 2. Upload Photo (if provided)
   let photo_url: string | null = null
@@ -61,8 +104,7 @@ export async function createDriver(formData: FormData) {
       .upload(filePath, photo_file)
 
     if (uploadError) {
-      console.error('Error uploading photo:', uploadError)
-      // Continue anyway, but without a photo
+      console.error('Photo upload error (non-fatal):', uploadError)
     } else {
       photo_url = data?.path || null
     }
@@ -76,69 +118,81 @@ export async function createDriver(formData: FormData) {
   })
 
   if (profileError) {
-    // Rollback auth user
-    await adminClient.auth.admin.deleteUser(userId)
-    throw new Error('Failed to create driver profile: ' + profileError.message)
+    await rollback()
+    return { error: 'Failed to create driver profile. Please try again.' }
   }
 
-  // 4. Create Vehicle (only plate number is required to trigger vehicle creation;
-  //    registration fields are optional and can be filled in later)
-  let final_vehicle_id = vehicle_id
-  if (!final_vehicle_id && new_vehicle_plate?.trim()) {
-    const { data: vehicle, error: vehicleError } = await adminClient.from('vehicles').insert({
-      plate_number:        new_vehicle_plate.trim(),
-      vehicle_type:        new_vehicle_type?.trim()         || '',
-      registration_number: new_vehicle_registration?.trim() || null,
-      registration_expiry: new_vehicle_expiry               || null,
-    }).select().single()
+  // 4. Create Vehicle (optional — only plate number is required to trigger creation)
+  let final_vehicle_id = vehicle_id || null
+  if (!final_vehicle_id && new_vehicle_plate) {
+    const { data: vehicle, error: vehicleError } = await adminClient
+      .from('vehicles')
+      .insert({
+        plate_number:        new_vehicle_plate,
+        vehicle_type:        new_vehicle_type?.trim()          || '',
+        registration_number: new_vehicle_registration?.trim()  || null,
+        registration_expiry: new_vehicle_expiry                || null,
+      })
+      .select()
+      .single()
 
     if (vehicleError) {
-      await adminClient.auth.admin.deleteUser(userId)
-      throw new Error('Failed to create new vehicle: ' + vehicleError.message)
+      await rollback()
+      // Catch any unexpected unique violation at DB level (e.g. race condition)
+      if (vehicleError.code === '23505') {
+        return {
+          error: `A vehicle with plate number "${new_vehicle_plate}" already exists. Use the vehicle assignment dropdown instead.`,
+        }
+      }
+      return { error: `Failed to create vehicle: ${vehicleError.message}` }
     }
-    
-    if (vehicle) {
-      final_vehicle_id = vehicle.id
-    }
+
+    if (vehicle) final_vehicle_id = vehicle.id
   }
 
   // 5. Create Driver Record
-  // login_email is denormalized here so driver-login can resolve name → email
+  // login_email is denormalized here so the /login page can resolve name → email
   // in a single DB query without a separate auth.admin.getUserById() call.
   const { error: driverError } = await adminClient.from('drivers').insert({
-    auth_user_id: userId,
+    auth_user_id:     userId,
     full_name,
-    login_email: email,
-    nationality:       nationality       || '',
-    mobile_number:     mobile_number     || '',
-    residence_number:  residence_number  || '',
-    card_number:       card_number       || '',
+    login_email:      email,
+    nationality:      nationality      || '',
+    mobile_number:    mobile_number    || '',
+    residence_number: residence_number || '',
+    card_number:      card_number      || '',
     photo_url,
-    vehicle_id: final_vehicle_id || null,
-    status: 'active'
+    vehicle_id:       final_vehicle_id,
+    status:           'active',
   })
 
   if (driverError) {
-    // Rollback
-    await adminClient.auth.admin.deleteUser(userId)
-    throw new Error('Failed to create driver record: ' + driverError.message)
+    await rollback()
+    if (driverError.code === '23505') {
+      return {
+        error: `A driver named "${full_name}" already exists. Each driver must have a unique name.`,
+      }
+    }
+    return { error: `Failed to save driver record: ${driverError.message}` }
   }
 
   revalidatePath('/admin/drivers')
   redirect('/admin/drivers')
 }
 
+// ─── updateDriver ─────────────────────────────────────────────────────────────
+
 export async function updateDriver(formData: FormData) {
   const adminClient = createAdminClient()
-  
-  const id = formData.get('id') as string
-  const full_name = formData.get('full_name') as string
-  const nationality = formData.get('nationality') as string
-  const mobile_number = formData.get('mobile_number') as string
+
+  const id               = formData.get('id') as string
+  const full_name        = formData.get('full_name') as string
+  const nationality      = formData.get('nationality') as string
+  const mobile_number    = formData.get('mobile_number') as string
   const residence_number = formData.get('residence_number') as string
-  const card_number = formData.get('card_number') as string
-  const vehicle_id = formData.get('vehicle_id') as string | null
-  const status = formData.get('status') as 'active' | 'suspended'
+  const card_number      = formData.get('card_number') as string
+  const vehicle_id       = formData.get('vehicle_id') as string | null
+  const status           = formData.get('status') as 'active' | 'suspended'
 
   const { error } = await adminClient
     .from('drivers')
@@ -149,15 +203,19 @@ export async function updateDriver(formData: FormData) {
       residence_number,
       card_number,
       vehicle_id: vehicle_id || null,
-      status
+      status,
     })
     .eq('id', id)
 
   if (error) throw new Error(error.message)
 
   // Update profile name as well to keep in sync
-  // First we need the auth_user_id
-  const { data: driver } = await adminClient.from('drivers').select('auth_user_id').eq('id', id).single()
+  const { data: driver } = await adminClient
+    .from('drivers')
+    .select('auth_user_id')
+    .eq('id', id)
+    .single()
+
   if (driver?.auth_user_id) {
     await adminClient.from('profiles').update({ full_name }).eq('id', driver.auth_user_id)
   }
@@ -166,21 +224,47 @@ export async function updateDriver(formData: FormData) {
   redirect('/admin/drivers')
 }
 
-export async function deleteDriver(id: string) {
+// ─── deleteDriver ─────────────────────────────────────────────────────────────
+
+export async function deleteDriver(
+  id: string
+): Promise<ActionError | ActionSuccess> {
   const adminClient = createAdminClient()
-  
-  // Get the auth_user_id first
-  const { data: driver } = await adminClient.from('drivers').select('auth_user_id').eq('id', id).single()
-  
-  if (driver?.auth_user_id) {
-    // Deleting the auth user cascades to profiles and drivers because of ON DELETE CASCADE
-    const { error } = await adminClient.auth.admin.deleteUser(driver.auth_user_id)
-    if (error) throw new Error(error.message)
+
+  // Fetch auth_user_id + name for the Supabase Auth deletion
+  const { data: driver, error: fetchError } = await adminClient
+    .from('drivers')
+    .select('auth_user_id, full_name')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !driver) {
+    return { error: 'Driver not found.' }
+  }
+
+  if (driver.auth_user_id) {
+    // Deleting the auth user cascades → profiles → drivers (ON DELETE CASCADE)
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
+      driver.auth_user_id
+    )
+
+    if (deleteError) {
+      // FK violation: driver has trips or inspections (ON DELETE RESTRICT)
+      if (
+        deleteError.message?.includes('23503') ||
+        deleteError.message?.toLowerCase().includes('foreign key')
+      ) {
+        return {
+          error: `Cannot delete "${driver.full_name}" — this driver has existing trips or vehicle inspections on record. Suspend the account instead, or delete all associated trips first.`,
+        }
+      }
+      return { error: `Failed to delete driver account: ${deleteError.message}` }
+    }
+  } else {
+    // No auth user linked - delete driver row directly
+    await adminClient.from('drivers').delete().eq('id', id)
   }
 
   revalidatePath('/admin/drivers')
   return { success: true }
 }
-
-
-

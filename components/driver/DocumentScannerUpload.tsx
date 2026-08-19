@@ -1,21 +1,27 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import {
+  ScanText, ImagePlus, X, RefreshCw, CheckCircle2,
+  XCircle, Loader2, AlertTriangle, FolderOpen, ClipboardPaste,
+} from 'lucide-react'
 import type { ExtractedPassenger, ScanResult } from '@/lib/ai/extractDocument'
 
 // Re-export so consumer pages can import from one place
 export type { ExtractedPassenger, ScanResult }
 
-// ─── Limits ──────────────────────────────────────────────────────────────────
+// ─── Limits ─────────────────────────────────────────────────────────────────
 const MAX_BATCH      = 12   // hard cap — user sees a clear error if exceeded
 const MAX_CONCURRENT = 4    // max Gemini API requests in-flight at once
 
-// ─── PDF detection ───────────────────────────────────────────────────────────
+// ─── PDF detection ──────────────────────────────────────────────────────────
 function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
 
 // ─── Image resize (cost control + accuracy) ──────────────────────────────────
+// All resizes run in parallel BEFORE the concurrency pool so scan slots are
+// purely network I/O — no CPU blocking during scanning.
 const MAX_PX = 1536
 
 async function resizeImage(file: File): Promise<File> {
@@ -32,10 +38,10 @@ async function resizeImage(file: File): Promise<File> {
       if (width <= MAX_PX && height <= MAX_PX) { resolve(file); return }
 
       if (width > height) { height = Math.round((height * MAX_PX) / width); width = MAX_PX }
-      else { width = Math.round((width * MAX_PX) / height); height = MAX_PX }
+      else                { width  = Math.round((width  * MAX_PX) / height); height = MAX_PX }
 
       const canvas = document.createElement('canvas')
-      canvas.width = width
+      canvas.width  = width
       canvas.height = height
       const ctx = canvas.getContext('2d')
       if (!ctx) { resolve(file); return }
@@ -53,9 +59,7 @@ async function resizeImage(file: File): Promise<File> {
   })
 }
 
-// ─── Concurrency pool ─────────────────────────────────────────────────────────
-// Runs tasks with at most `limit` in-flight at a time.
-// As each task finishes, the next one starts immediately.
+// ─── Concurrency pool ────────────────────────────────────────────────────────
 async function runWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
   limit: number,
@@ -74,7 +78,7 @@ async function runWithConcurrency<T>(
   return results
 }
 
-// ─── Network retry helper ─────────────────────────────────────────────────────
+// ─── Network retry helper ────────────────────────────────────────────────────
 const MAX_RETRIES = 3
 
 async function scanWithRetry(
@@ -86,12 +90,10 @@ async function scanWithRetry(
     if (attempt > 0) {
       await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)))
     }
-
     try {
       const fd = new FormData()
       fd.append('file', resizedFile)
-
-      const res = await fetch('/api/scan-document', { method: 'POST', body: fd })
+      const res  = await fetch('/api/scan-document', { method: 'POST', body: fd })
       const data = await res.json()
       return { ok: res.ok, status: res.status, data }
     } catch (err) {
@@ -103,108 +105,110 @@ async function scanWithRetry(
   return { ok: false, status: 0, data: { error: msg } }
 }
 
-// ─── Braille spinner (JS-driven — CSS animations are globally disabled) ───────
-const SPINNER_FRAMES = ['⣷', '⣯', '⣟', '⡿', '⢿', '⣻', '⣽', '⣾']
-
-function useSpinner(active: boolean): string {
-  const [frame, setFrame] = useState(0)
-  useEffect(() => {
-    if (!active) return
-    const id = setInterval(() => setFrame(f => (f + 1) % SPINNER_FRAMES.length), 120)
-    return () => clearInterval(id)
-  }, [active])
-  return SPINNER_FRAMES[frame]
-}
-
-// ─── FileSlot — per-image progress state ─────────────────────────────────────
-type SlotStatus = 'pending' | 'scanning' | 'done' | 'error'
-
-type FileSlot = {
-  id: string
-  name: string        // truncated display name (≤28 chars for layout)
-  fullName: string    // exact original filename — always shown on error rows
-  status: SlotStatus
-  passengersFound: number
-  errorMsg: string | null
-}
-
 function truncateName(name: string, max = 28): string {
   if (name.length <= max) return name
   const ext = name.lastIndexOf('.') > 0 ? name.slice(name.lastIndexOf('.')) : ''
-  return name.slice(0, max - ext.length - 1) + '…' + ext
+  return name.slice(0, max - ext.length - 1) + '...' + ext
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Duplicate-file fingerprint ──────────────────────────────────────────────
+// Clipboard-pasted images always get a generic name ("image.png") and a fresh
+// lastModified timestamp, so we cannot use name+lastModified for dedup.
+// Instead we use size+type for generic names (highly reliable for same paste),
+// and name+size+lastModified for file-picker files.
+const GENERIC_IMAGE_RE = /^image\.(png|jpe?g|webp|gif|bmp)$/i
+
+function fileFingerprint(file: File): string {
+  if (GENERIC_IMAGE_RE.test(file.name)) {
+    // Clipboard paste — content key only
+    return `paste:${file.size}:${file.type}`
+  }
+  // File picker — path-equivalent key
+  return `pick:${file.name}:${file.size}:${file.lastModified}`
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+type SlotStatus = 'pending' | 'scanning' | 'done' | 'error'
+
+type FileSlot = {
+  id:              string
+  name:            string
+  fullName:        string
+  status:          SlotStatus
+  passengersFound: number
+  errorMsg:        string | null
+  file:            File        // kept so per-slot retry can re-upload the same file
+  thumbUrl:        string | null
+}
+
+type StagedFile = {
+  id:       string
+  file:     File
+  thumbUrl: string | null
+}
+
+type OverallStatus = 'idle' | 'staging' | 'processing' | 'done' | 'error'
+
+// ─── Component ───────────────────────────────────────────────────────────────
 interface Props {
   onBatchScanSuccess: (data: ScanResult) => void
 }
 
-type OverallStatus = 'idle' | 'processing' | 'done' | 'error'
-
 export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   const [overallStatus, setOverallStatus] = useState<OverallStatus>('idle')
-  const [fileSlots, setFileSlots] = useState<FileSlot[]>([])
-  const [lastWarnings, setLastWarnings] = useState<string[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [batchError, setBatchError] = useState<string | null>(null)
+  const [staged,        setStaged]        = useState<StagedFile[]>([])
+  const [fileSlots,     setFileSlots]     = useState<FileSlot[]>([])
+  const [lastWarnings,  setLastWarnings]  = useState<string[]>([])
+  const [dupSkipped,    setDupSkipped]    = useState(0)   // count of rejected duplicates
+  const [isDragging,    setIsDragging]    = useState(false)
+  const [batchError,    setBatchError]    = useState<string | null>(null)
+  const [stagingError,  setStagingError]  = useState<string | null>(null)
 
   const processingRef = useRef(false)
-  const queueRef = useRef<File[]>([])
-  const onSuccessRef = useRef(onBatchScanSuccess)
+  const onSuccessRef  = useRef(onBatchScanSuccess)
   useEffect(() => { onSuccessRef.current = onBatchScanSuccess }, [onBatchScanSuccess])
 
-  const isAnyScanning = fileSlots.some(s => s.status === 'scanning')
-  const spinnerChar = useSpinner(isAnyScanning)
+  // ─── Derived ────────────────────────────────────────────────────────────
+  const totalSlots      = fileSlots.length
+  const doneSlots       = fileSlots.filter(s => s.status === 'done' || s.status === 'error').length
+  const successSlots    = fileSlots.filter(s => s.status === 'done').length
+  const errorSlots      = fileSlots.filter(s => s.status === 'error').length
+  const pendingSlots    = fileSlots.filter(s => s.status === 'pending').length
+  const progressPct     = totalSlots > 0 ? Math.round((doneSlots / totalSlots) * 100) : 0
+  const totalPassengers = fileSlots.reduce((sum, s) => sum + s.passengersFound, 0)
+  const isProcessing    = overallStatus === 'processing'
+  const isScanning      = fileSlots.some(s => s.status === 'scanning')
 
-  // ─── Slot updater ─────────────────────────────────────────────────────────
+  // ─── Slot updater ────────────────────────────────────────────────────────
   const updateSlot = useCallback((id: string, patch: Partial<FileSlot>) => {
     setFileSlots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
   }, [])
 
-  // ─── Core processor with concurrency pool ─────────────────────────────────
-  const drainQueue = useCallback(async () => {
-    if (processingRef.current || queueRef.current.length === 0) return
+  // ─── Core scan runner ────────────────────────────────────────────────────
+  // 1. Resize ALL files in parallel (CPU/canvas — no network contention).
+  // 2. Feed resized files into the concurrency pool (network I/O only).
+  const runScans = useCallback(async (
+    targets: Array<{ slotId: string; file: File }>,
+    onFinish?: (successCount: number) => void,
+  ) => {
+    if (targets.length === 0) return
 
-    processingRef.current = true
-    const files = queueRef.current.splice(0)
+    // Phase 1 — parallel resize (does not block network slots)
+    const resized = await Promise.all(targets.map(t => resizeImage(t.file)))
 
-    // ── Hard limit: max 12 images ──────────────────────────────────────────
-    if (files.length > MAX_BATCH) {
-      setBatchError(`Maximum ${MAX_BATCH} images per batch. You selected ${files.length}. Please select up to ${MAX_BATCH} files.`)
-      processingRef.current = false
-      return
-    }
-    setBatchError(null)
-
-    // Pre-build all slots as 'pending' so the UI renders them immediately
-    const slots: FileSlot[] = files.map((f, i) => ({
-      id: `slot-${Date.now()}-${i}`,
-      name: truncateName(f.name || `Document ${i + 1}`),
-      fullName: f.name || `Document ${i + 1}`,
-      status: 'pending',
-      passengersFound: 0,
-      errorMsg: null,
-    }))
-    setFileSlots(slots)
-    setOverallStatus('processing')
-    setLastWarnings([])
+    // Phase 2 — mark all as scanning before network pool starts
+    targets.forEach(t => updateSlot(t.slotId, { status: 'scanning' }))
 
     const allWarnings: string[] = []
     let successCount = 0
 
-    // Build tasks for the concurrency pool (max MAX_CONCURRENT at a time)
-    const tasks = files.map((file, i) => async () => {
-      const slotId = slots[i].id
-
-      const resized = await resizeImage(file)
-      updateSlot(slotId, { status: 'scanning' })
-
-      const { ok, data } = await scanWithRetry(resized)
+    const tasks = targets.map((target, i) => async () => {
+      const { ok, data } = await scanWithRetry(resized[i])
       const json = data as Record<string, unknown>
 
       if (!ok) {
         const errText = (json?.error as string) || 'Scan failed — try another image.'
-        updateSlot(slotId, { status: 'error', errorMsg: errText })
+        updateSlot(target.slotId, { status: 'error', errorMsg: errText })
         return
       }
 
@@ -212,47 +216,181 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
       const count = scanResult.passengers?.length ?? 0
       if (scanResult.warnings?.length) allWarnings.push(...scanResult.warnings)
 
-      updateSlot(slotId, { status: 'done', passengersFound: count })
+      updateSlot(target.slotId, { status: 'done', passengersFound: count })
       onSuccessRef.current(scanResult)
       successCount++
     })
 
-    // Run with concurrency pool — at most MAX_CONCURRENT (4) in-flight at once
     await runWithConcurrency(tasks, MAX_CONCURRENT)
 
-    if (allWarnings.length > 0) setLastWarnings(allWarnings)
-
-    processingRef.current = false
-    setOverallStatus(successCount > 0 ? 'done' : 'error')
-
-    // Auto-clear after 6s only if everything succeeded
-    if (successCount > 0 && successCount === files.length) {
-      setTimeout(() => {
-        setFileSlots([])
-        setOverallStatus('idle')
-      }, 6000)
-    }
+    if (allWarnings.length > 0) setLastWarnings(prev => [...prev, ...allWarnings])
+    onFinish?.(successCount)
   }, [updateSlot])
 
-  const enqueue = useCallback((files: File[]) => {
-    if (files.length === 0) return
-    queueRef.current = [...queueRef.current, ...files]
-    drainQueue()
-  }, [drainQueue])
+  // ─── Start Scan (main trigger) ───────────────────────────────────────────
+  const handleStartScan = useCallback(async () => {
+    if (processingRef.current || staged.length === 0) return
 
-  // ─── File picker ──────────────────────────────────────────────────────────
+    if (staged.length > MAX_BATCH) {
+      setBatchError(`Maximum ${MAX_BATCH} images per batch. You staged ${staged.length}. Remove some files first.`)
+      return
+    }
+
+    processingRef.current = true
+    setBatchError(null)
+    setStagingError(null)
+
+    const slots: FileSlot[] = staged.map((s, i) => ({
+      id:              `slot-${Date.now()}-${i}`,
+      name:            truncateName(s.file.name || `Document ${i + 1}`),
+      fullName:        s.file.name || `Document ${i + 1}`,
+      status:          'pending',
+      passengersFound: 0,
+      errorMsg:        null,
+      file:            s.file,
+      thumbUrl:        s.thumbUrl,   // thumbnail URLs are transferred (not revoked)
+    }))
+
+    setStaged([])
+    setFileSlots(slots)
+    setOverallStatus('processing')
+    setLastWarnings([])
+
+    await runScans(
+      slots.map(s => ({ slotId: s.id, file: s.file })),
+      (successCount) => {
+        processingRef.current = false
+        setOverallStatus(successCount > 0 ? 'done' : 'error')
+
+        // Auto-clear after 8 s only when ALL files succeeded
+        if (successCount === slots.length) {
+          setTimeout(() => {
+            slots.forEach(s => { if (s.thumbUrl) URL.revokeObjectURL(s.thumbUrl) })
+            setFileSlots([])
+            setOverallStatus('idle')
+          }, 8000)
+        }
+      }
+    )
+  }, [staged, runScans])
+
+  // ─── Per-slot retry ──────────────────────────────────────────────────────
+  const handleRetry = useCallback(async (slotId: string) => {
+    if (processingRef.current) return   // prevent concurrent retry/start
+    const slot = fileSlots.find(s => s.id === slotId)
+    if (!slot) return
+
+    processingRef.current = true
+    updateSlot(slotId, { status: 'pending', errorMsg: null })
+
+    await runScans([{ slotId, file: slot.file }], () => {
+      processingRef.current = false
+      // Use functional updater so overallStatus decision reads fresh slot state
+      setFileSlots(prev => {
+        const allDone = prev.every(s => s.status === 'done' || s.status === 'error')
+        if (allDone) {
+          const anySuccess = prev.some(s => s.status === 'done')
+          // Schedule outside the updater to avoid setState-in-setState warning
+          setTimeout(() => setOverallStatus(anySuccess ? 'done' : 'error'), 0)
+        }
+        return prev
+      })
+    })
+  }, [fileSlots, runScans, updateSlot])
+
+  // ─── Staging helpers ─────────────────────────────────────────────────────
+  const addToStaging = useCallback((files: File[]) => {
+    // Block adding files while actively scanning or when a scan is done/error
+    // (user should explicitly click 'Scan more documents' to reset first)
+    if (isProcessing || overallStatus === 'done' || overallStatus === 'error') return
+
+    const imageFiles = files.filter(f =>
+      f.type.startsWith('image/') || isPdf(f) ||
+      /\.(jpg|jpeg|png|webp|gif|pdf)$/i.test(f.name)
+    )
+    if (imageFiles.length === 0) return
+
+    setStagingError(null)
+
+    // ── Dedup: reject files whose fingerprint already exists in staging ──────
+    // Handles the common case of pasting the same image twice. For clipboard
+    // images the fingerprint is size+type (lastModified is always "now").
+    // For file-picker files it is name+size+lastModified.
+    const existingPrints = new Set(staged.map(s => fileFingerprint(s.file)))
+    // Also dedup within the incoming batch itself (e.g. selecting same file twice)
+    const seenInBatch    = new Set<string>()
+    const unique: File[] = []
+    let dupCount = 0
+    for (const f of imageFiles) {
+      const fp = fileFingerprint(f)
+      if (existingPrints.has(fp) || seenInBatch.has(fp)) {
+        dupCount++
+      } else {
+        seenInBatch.add(fp)
+        unique.push(f)
+      }
+    }
+    if (dupCount > 0) setDupSkipped(dupCount)
+
+    if (unique.length === 0) return
+
+    const allowed = unique.slice(0, Math.max(0, MAX_BATCH - staged.length))
+
+    if (staged.length + unique.length > MAX_BATCH) {
+      setStagingError(
+        `Only ${allowed.length} of ${unique.length} files added — maximum is ${MAX_BATCH} documents.`
+      )
+    }
+
+    if (allowed.length === 0) return
+
+    const newStaged: StagedFile[] = allowed.map((f, i) => ({
+      id:       `staged-${Date.now()}-${i}`,
+      file:     f,
+      thumbUrl: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
+    }))
+
+    setOverallStatus('staging')
+    setStaged(prev => [...prev, ...newStaged])
+  }, [isProcessing, overallStatus, staged])
+
+  const removeStagedFile = useCallback((id: string) => {
+    setStaged(prev => {
+      const item = prev.find(s => s.id === id)
+      if (item?.thumbUrl) URL.revokeObjectURL(item.thumbUrl)
+      const next = prev.filter(s => s.id !== id)
+      if (next.length === 0) {
+        setOverallStatus('idle')
+        setStagingError(null)
+      }
+      return next
+    })
+  }, [])
+
+  const clearStaging = useCallback(() => {
+    setStaged(prev => {
+      prev.forEach(s => { if (s.thumbUrl) URL.revokeObjectURL(s.thumbUrl) })
+      return []
+    })
+    setOverallStatus('idle')
+    setStagingError(null)
+    setBatchError(null)
+    setDupSkipped(0)
+  }, [])
+
+  // ─── File picker ─────────────────────────────────────────────────────────
   const openFileBrowser = useCallback(() => {
-    if (processingRef.current) return
+    if (isProcessing) return
     const input = document.createElement('input')
-    input.type = 'file'
+    input.type     = 'file'
     input.multiple = true
-    input.accept = 'image/*,application/pdf'
+    input.accept   = 'image/*,application/pdf'
     input.style.display = 'none'
 
     input.onchange = () => {
       const files = input.files ? Array.from(input.files) : []
       document.body.removeChild(input)
-      if (files.length > 0) enqueue(files)
+      if (files.length > 0) addToStaging(files)
     }
 
     const onFocus = () => {
@@ -264,7 +402,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
     window.addEventListener('focus', onFocus)
     document.body.appendChild(input)
     input.click()
-  }, [enqueue])
+  }, [isProcessing, addToStaging])
 
   // ─── Ctrl+V paste ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -274,14 +412,14 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
       if (docItems.length === 0) return
       e.preventDefault()
       const files = docItems.map(i => i.getAsFile()).filter((f): f is File => f !== null)
-      if (files.length > 0) enqueue(files)
+      if (files.length > 0) addToStaging(files)
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [enqueue])
+  }, [addToStaging])
 
-  // ─── Drag and drop ────────────────────────────────────────────────────────
-  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
+  // ─── Drag & drop ──────────────────────────────────────────────────────────
+  const onDragOver  = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
   const onDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
     if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false)
@@ -296,128 +434,242 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
         .map(i => i.getAsFile())
         .filter((f): f is File => f !== null)
     }
-    if (files.length > 0) enqueue(files)
+    if (files.length > 0) addToStaging(files)
   }
 
-  // ─── Derived values ───────────────────────────────────────────────────────
-  const totalSlots = fileSlots.length
-  const doneSlots = fileSlots.filter(s => s.status === 'done' || s.status === 'error').length
-  const successSlots = fileSlots.filter(s => s.status === 'done').length
-  const errorSlots = fileSlots.filter(s => s.status === 'error').length
-  const progressPct = totalSlots > 0 ? Math.round((doneSlots / totalSlots) * 100) : 0
-  const totalPassengersFound = fileSlots.reduce((sum, s) => sum + s.passengersFound, 0)
-  const isProcessing = overallStatus === 'processing'
+  // ─── Reset ────────────────────────────────────────────────────────────────
+  const resetToIdle = useCallback(() => {
+    fileSlots.forEach(s => { if (s.thumbUrl) URL.revokeObjectURL(s.thumbUrl) })
+    setFileSlots([])
+    setStaged([])
+    setOverallStatus('idle')
+    setBatchError(null)
+    setStagingError(null)
+    setLastWarnings([])
+    setDupSkipped(0)
+    processingRef.current = false
+  }, [fileSlots])
 
   // ─── Render ───────────────────────────────────────────────────────────────
+  const dropzoneClass = [
+    'w-full border-2 border-dashed rounded-xl transition-colors',
+    isDragging           ? 'border-accent bg-accent/5' :
+    isProcessing         ? 'border-accent/40 bg-surface' :
+    overallStatus === 'done'    ? 'border-green-400/60 bg-surface' :
+    overallStatus === 'error'   ? 'border-red-300/60 bg-surface' :
+    overallStatus === 'staging' ? 'border-accent/50 bg-surface' :
+    'border-border bg-surface hover:border-accent/60',
+  ].join(' ')
+
   return (
     <div
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`w-full border-2 border-dashed rounded-lg ${
-        isDragging
-          ? 'border-accent bg-accent/5'
-          : isProcessing
-            ? 'border-accent/40 bg-surface'
-            : overallStatus === 'done'
-              ? 'border-green-400 bg-surface'
-              : overallStatus === 'error'
-                ? 'border-red-300 bg-surface'
-                : 'border-border bg-surface hover:border-accent'
-      }`}
+      className={dropzoneClass}
     >
       <div className="p-5 space-y-4">
 
-        {/* ── BATCH LIMIT ERROR ───────────────────────────────────────────── */}
-        {batchError && (
+        {/* ── Error banners ─────────────────────────────────────────────── */}
+        {(batchError || stagingError) && (
           <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <span className="text-red-500 text-base leading-none flex-shrink-0 mt-0.5">⚠</span>
+            <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-red-700">Too many files selected</p>
-              <p className="text-xs text-red-600 mt-0.5">{batchError}</p>
+              <p className="text-sm font-semibold text-red-700">Too many files</p>
+              <p className="text-xs text-red-600 mt-0.5">{batchError ?? stagingError}</p>
             </div>
             <button
               type="button"
-              onClick={() => setBatchError(null)}
+              onClick={() => { setBatchError(null); setStagingError(null) }}
               className="text-red-400 hover:text-red-600 flex-shrink-0"
+              aria-label="Dismiss"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X size={15} />
             </button>
           </div>
         )}
 
-        {/* ── IDLE STATE ──────────────────────────────────────────────────── */}
-        {overallStatus === 'idle' && !batchError && (
-          <div className="text-center space-y-3 py-2">
+        {/* ══════════════════════════════════════════════════════════════════
+            idle — drop-zone prompt
+        ══════════════════════════════════════════════════════════════════ */}
+        {overallStatus === 'idle' && (
+          <div className="text-center space-y-3 py-4">
             <div className="flex items-center justify-center gap-2">
-              <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-sm font-semibold text-text-primary">Batch Auto-Fill</p>
+              <ScanText size={22} strokeWidth={1.8} className="text-accent" />
+              <p className="text-sm font-semibold text-text-primary">Batch Document Scan</p>
             </div>
             <p className="text-xs text-text-secondary max-w-sm mx-auto">
-              Select up to <strong>{MAX_BATCH} documents</strong> at once — passports, visas, or ID images.
-              Scanned {MAX_CONCURRENT} at a time for best accuracy.
+              Upload up to <strong>{MAX_BATCH} documents</strong> — passports, visas, or ID images.
+              Choose your files, review the list, then press <strong>Start Scan</strong>.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <button
                 type="button"
                 onClick={openFileBrowser}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-accent text-white text-sm font-semibold hover:opacity-90"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <FolderOpen size={15} />
                 Select Documents
               </button>
-              <span className="text-xs text-text-secondary">
-                or drag & drop / <kbd className="px-1 py-0.5 bg-border rounded font-mono text-xs">Ctrl+V</kbd>
+              <span className="text-xs text-text-secondary flex items-center gap-1.5">
+                or drag &amp; drop&nbsp;/&nbsp;
+                <ClipboardPaste size={12} className="inline" />
+                <kbd className="px-1 py-0.5 bg-border rounded font-mono text-xs">Ctrl+V</kbd>
               </span>
             </div>
-            <p className="text-xs text-text-secondary">
-              JPG · PNG · WebP · PDF &nbsp;|&nbsp; Max {MAX_BATCH} files per batch
-            </p>
+            <p className="text-[11px] text-text-secondary/60">Supports JPG, PNG, WEBP, PDF</p>
           </div>
         )}
 
-        {/* ── PROCESSING / DONE / ERROR STATES ────────────────────────────── */}
-        {fileSlots.length > 0 && (
+        {/* ══════════════════════════════════════════════════════════════════
+            staging — thumbnail grid + Start Scan button
+        ══════════════════════════════════════════════════════════════════ */}
+        {overallStatus === 'staging' && (
           <div className="space-y-3">
 
-            {/* Header row */}
+            {/* Header */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isProcessing ? (
+              <p className="text-sm font-semibold text-text-primary">
+                {staged.length} {staged.length === 1 ? 'document' : 'documents'} ready to scan
+              </p>
+              <button
+                type="button"
+                onClick={clearStaging}
+                className="text-xs text-text-secondary hover:text-danger flex items-center gap-1"
+              >
+                <X size={12} /> Clear all
+              </button>
+            </div>
+
+            {/* Duplicate-skipped notice */}
+            {dupSkipped > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
+                <p className="text-xs text-amber-700 flex-1">
+                  {dupSkipped === 1
+                    ? '1 duplicate image was skipped — it was already in the list.'
+                    : `${dupSkipped} duplicate images were skipped — they were already in the list.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDupSkipped(0)}
+                  className="text-amber-400 hover:text-amber-600"
+                  aria-label="Dismiss"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* Thumbnail grid */}
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {staged.map(item => (
+                <div
+                  key={item.id}
+                  className="relative group aspect-square rounded-md overflow-hidden border border-border bg-surface"
+                >
+                  {item.thumbUrl ? (
+                    <img
+                      src={item.thumbUrl}
+                      alt={item.file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-border/20">
+                      <ScanText size={20} className="text-text-secondary" />
+                    </div>
+                  )}
+
+                  {/* Filename on hover */}
+                  <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-[9px] text-white truncate leading-tight">{item.file.name}</p>
+                  </div>
+
+                  {/* Remove button */}
+                  <button
+                    type="button"
+                    onClick={() => removeStagedFile(item.id)}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger"
+                    aria-label={`Remove ${item.file.name}`}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+
+              {/* Add-more tile */}
+              {staged.length < MAX_BATCH && (
+                <button
+                  type="button"
+                  onClick={openFileBrowser}
+                  className="aspect-square rounded-md border-2 border-dashed border-border hover:border-accent text-text-secondary hover:text-accent flex flex-col items-center justify-center gap-1 text-xs transition-colors"
+                  title="Add more files"
+                >
+                  <ImagePlus size={16} />
+                  <span>Add</span>
+                </button>
+              )}
+            </div>
+
+            {/* Start Scan action row */}
+            <div className="flex items-center justify-between pt-2 border-t border-border/60">
+              <p className="text-xs text-text-secondary">
+                {MAX_BATCH - staged.length} slot{MAX_BATCH - staged.length !== 1 ? 's' : ''} remaining
+              </p>
+              <button
+                type="button"
+                onClick={handleStartScan}
+                disabled={staged.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-accent text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ScanText size={15} />
+                Start Scan ({staged.length})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            processing / done / error — scan progress
+        ══════════════════════════════════════════════════════════════════ */}
+        {(isProcessing || overallStatus === 'done' || overallStatus === 'error') && (
+          <div className="space-y-3">
+
+            {/* Summary header */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {(isProcessing || isScanning) ? (
                   <>
-                    <span className="text-accent font-mono text-base leading-none">{spinnerChar}</span>
-                    <p className="text-sm font-semibold text-text-primary">
-                      Scanning {totalSlots} {totalSlots === 1 ? 'document' : 'documents'}…
+                    <Loader2 size={16} className="text-accent animate-spin flex-shrink-0" />
+                    <p className="text-sm font-semibold text-text-primary truncate">
+                      Scanning{pendingSlots > 0 ? ` — ${doneSlots} of ${totalSlots} done` : '...'}
                     </p>
                   </>
-                ) : overallStatus === 'done' ? (
+                ) : overallStatus === 'done' && errorSlots === 0 ? (
                   <>
-                    <span className="text-green-600 text-base leading-none">✓</span>
+                    <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
                     <p className="text-sm font-semibold text-text-primary">
-                      {errorSlots === 0
-                        ? `All ${totalSlots} ${totalSlots === 1 ? 'document' : 'documents'} scanned`
-                        : `${successSlots} of ${totalSlots} succeeded · ${errorSlots} failed`}
+                      {successSlots === 1 ? '1 document scanned' : `All ${successSlots} documents scanned`}
+                    </p>
+                  </>
+                ) : overallStatus === 'done' && errorSlots > 0 ? (
+                  <>
+                    <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
+                    <p className="text-sm font-semibold text-text-primary">
+                      {successSlots} of {totalSlots} succeeded &mdash; {errorSlots} failed
                     </p>
                   </>
                 ) : (
                   <>
-                    <span className="text-red-500 text-base leading-none">✕</span>
+                    <XCircle size={16} className="text-red-500 flex-shrink-0" />
                     <p className="text-sm font-semibold text-text-primary">Scan failed</p>
                   </>
                 )}
               </div>
 
-              {totalPassengersFound > 0 && (
-                <span className="text-xs font-semibold px-2 py-1 bg-green-50 border border-green-200 text-green-700 rounded-full">
-                  {totalPassengersFound} {totalPassengersFound === 1 ? 'passenger' : 'passengers'} found
+              {totalPassengers > 0 && (
+                <span className="flex-shrink-0 text-xs font-semibold px-2 py-1 bg-green-50 border border-green-200 text-green-700 rounded-full">
+                  {totalPassengers} {totalPassengers === 1 ? 'passenger' : 'passengers'} found
                 </span>
               )}
             </div>
@@ -427,7 +679,7 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
               <div className="space-y-1">
                 <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${
+                    className={`h-full rounded-full transition-all ${
                       progressPct === 100
                         ? errorSlots > 0 ? 'bg-amber-400' : 'bg-green-500'
                         : 'bg-accent'
@@ -437,72 +689,65 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
                 </div>
                 <div className="flex justify-between text-xs text-text-secondary">
                   <span>
-                    {isProcessing
+                    {isScanning
                       ? `${Math.min(MAX_CONCURRENT, totalSlots - doneSlots)} scanning in parallel`
                       : `${doneSlots} complete`}
                   </span>
-                  <span>{doneSlots} of {totalSlots}</span>
+                  <span>{doneSlots} / {totalSlots}</span>
                 </div>
               </div>
             )}
 
             {/* Per-file slot rows */}
-            <div className="border border-border rounded-md overflow-hidden">
-              {fileSlots.map((slot, idx) => (
+            <div className="border border-border rounded-lg overflow-hidden divide-y divide-border/60">
+              {fileSlots.map((slot) => (
                 <div
                   key={slot.id}
-                  className={`flex items-start gap-3 px-3 py-2.5 ${
-                    idx < fileSlots.length - 1 ? 'border-b border-border/60' : ''
-                  } ${
-                    slot.status === 'done' ? 'bg-green-50/50' :
-                    slot.status === 'error' ? 'bg-red-50/60' :
+                  className={`flex items-center gap-3 px-3 py-2.5 ${
+                    slot.status === 'done'     ? 'bg-green-50/50' :
+                    slot.status === 'error'    ? 'bg-red-50/60' :
                     slot.status === 'scanning' ? 'bg-accent/5' :
                     'bg-surface'
                   }`}
                 >
+                  {/* Thumbnail */}
+                  {slot.thumbUrl && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-border/40">
+                      <img src={slot.thumbUrl} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+
                   {/* Status icon */}
-                  <div className="flex-shrink-0 w-5 text-center mt-0.5">
-                    {slot.status === 'done' && <span className="text-green-600 text-sm font-bold">✓</span>}
-                    {slot.status === 'error' && <span className="text-red-500 text-sm font-bold">✕</span>}
-                    {slot.status === 'scanning' && <span className="text-accent font-mono text-sm">{spinnerChar}</span>}
-                    {slot.status === 'pending' && <span className="text-text-secondary text-sm">◌</span>}
+                  <div className="flex-shrink-0 w-4 flex items-center justify-center">
+                    {slot.status === 'done'     && <CheckCircle2 size={14} className="text-green-600" />}
+                    {slot.status === 'error'    && <XCircle      size={14} className="text-red-500" />}
+                    {slot.status === 'scanning' && <Loader2      size={14} className="text-accent animate-spin" />}
+                    {slot.status === 'pending'  && <div className="w-2 h-2 rounded-full bg-border" />}
                   </div>
 
-                  {/* Filename + status text */}
+                  {/* Name + sub-text */}
                   <div className="flex-1 min-w-0">
-                    {slot.status === 'error' ? (
-                      // Error: show FULL filename — untruncated, selectable, copyable
-                      <>
-                        <p
-                          className="text-xs font-mono font-semibold text-red-700 break-all select-all cursor-text"
-                          title="Click to select filename"
-                        >
-                          {slot.fullName}
-                        </p>
-                        <p className="text-xs text-red-500 mt-0.5">{slot.errorMsg}</p>
-                      </>
-                    ) : (
-                      // Normal: show truncated name + status
-                      <>
-                        <p className={`text-xs font-medium truncate ${
-                          slot.status === 'done' ? 'text-text-primary' :
-                          slot.status === 'scanning' ? 'text-text-primary' :
-                          'text-text-secondary'
-                        }`}>
-                          {slot.name}
-                        </p>
-                        {slot.status === 'scanning' && (
-                          <p className="text-xs text-accent/80 mt-0.5">Reading with AI…</p>
-                        )}
-                        {slot.status === 'pending' && (
-                          <p className="text-xs text-text-secondary/60 mt-0.5">Queued…</p>
-                        )}
-                      </>
+                    <p className={`text-xs font-medium truncate ${
+                      slot.status === 'error'    ? 'text-red-700 font-mono' :
+                      slot.status === 'done'     ? 'text-text-primary' :
+                      slot.status === 'scanning' ? 'text-text-primary' :
+                      'text-text-secondary'
+                    }`}>
+                      {slot.status === 'error' ? slot.fullName : slot.name}
+                    </p>
+                    {slot.status === 'scanning' && (
+                      <p className="text-xs text-accent/80 mt-0.5">Reading with AI...</p>
+                    )}
+                    {slot.status === 'pending' && (
+                      <p className="text-xs text-text-secondary/60 mt-0.5">Queued</p>
+                    )}
+                    {slot.status === 'error' && slot.errorMsg && (
+                      <p className="text-xs text-red-500 mt-0.5">{slot.errorMsg}</p>
                     )}
                   </div>
 
-                  {/* Right badge */}
-                  <div className="flex-shrink-0 text-right mt-0.5">
+                  {/* Right: badge or retry button */}
+                  <div className="flex-shrink-0 flex items-center gap-2">
                     {slot.status === 'done' && (
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                         slot.passengersFound > 0
@@ -520,57 +765,50 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
                     {slot.status === 'pending' && (
                       <span className="text-xs text-text-secondary">Queued</span>
                     )}
-                    {slot.status === 'error' && (
-                      <span className="text-xs text-red-500 font-medium">Failed</span>
+                    {slot.status === 'error' && !isProcessing && (
+                      <button
+                        type="button"
+                        onClick={() => handleRetry(slot.id)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border border-accent text-accent hover:bg-accent hover:text-white transition-colors"
+                        title={`Retry scanning ${slot.fullName}`}
+                      >
+                        <RefreshCw size={11} />
+                        Retry
+                      </button>
                     )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Failed files summary — clearly listed */}
-            {errorSlots > 0 && (overallStatus === 'done' || overallStatus === 'error') && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1.5">
-                <p className="text-xs font-semibold text-red-700">
-                  {errorSlots} {errorSlots === 1 ? 'file' : 'files'} failed to scan:
-                </p>
-                {fileSlots.filter(s => s.status === 'error').map((s) => (
-                  <p key={s.id} className="text-xs font-mono text-red-600 break-all select-all">
-                    • {s.fullName}
-                  </p>
-                ))}
-                <p className="text-xs text-red-500 mt-1">
-                  Locate these files and try uploading them again with better lighting or a clearer photo.
-                </p>
-              </div>
-            )}
-
-            {/* Warnings */}
+            {/* Warnings panel */}
             {lastWarnings.length > 0 && (overallStatus === 'done' || overallStatus === 'error') && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 space-y-1">
-                <p className="font-semibold">⚠ {lastWarnings.length} {lastWarnings.length === 1 ? 'notice' : 'notices'}:</p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <AlertTriangle size={12} />
+                  {lastWarnings.length} {lastWarnings.length === 1 ? 'notice' : 'notices'}:
+                </p>
                 {lastWarnings.map((w, i) => (
-                  <p key={i}>• {w}</p>
+                  <p key={i} className="pl-4 text-amber-700">• {w}</p>
                 ))}
               </div>
             )}
 
             {/* Done footer */}
             {(overallStatus === 'done' || overallStatus === 'error') && (
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
                 <p className="text-xs text-text-secondary">
-                  {successSlots > 0 ? 'Review and confirm the extracted data below' : 'Please try again with clearer images'}
+                  {successSlots > 0
+                    ? 'Review and confirm the extracted data below'
+                    : 'Please try again with clearer images'}
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setFileSlots([])
-                    setOverallStatus('idle')
-                    setBatchError(null)
-                  }}
-                  className="text-xs text-accent hover:underline font-medium"
+                  onClick={resetToIdle}
+                  className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-semibold"
                 >
-                  + Scan more documents
+                  <ImagePlus size={12} />
+                  Scan more documents
                 </button>
               </div>
             )}

@@ -77,11 +77,24 @@ export default function NewDriverTripPage() {
     })
   }
 
-  // ── Review table: confirm all → move into the form ────────────────────────
+  // ── Review table: confirm all → move into the form (skips form duplicates) ───
   const confirmBatch = () => {
     if (!pendingBatch) return
 
-    pendingBatch.passengers.forEach((p, batchIdx) => {
+    // Build the set of ID numbers already committed to the form
+    const committedIds = new Set<string>()
+    if (firstGuest.id_number) committedIds.add(firstGuest.id_number.trim().toUpperCase())
+    passengers.forEach(p => { if (p.id_number) committedIds.add(p.id_number.trim().toUpperCase()) })
+
+    let usedFirstGuest = false
+
+    pendingBatch.passengers.forEach((p) => {
+      const idVal = (p.passport_number || p.visa_number || '').trim().toUpperCase()
+
+      // Skip rows whose ID number is already in the confirmed form
+      if (idVal && committedIds.has(idVal)) return
+      if (idVal) committedIds.add(idVal)   // prevent intra-batch dups getting added twice
+
       const pData = {
         name: p.full_name || '',
         nationality: p.nationality || '',
@@ -89,12 +102,10 @@ export default function NewDriverTripPage() {
         document_image_url: '',
       }
 
-      // Fill primary guest first if empty
-      if (batchIdx === 0 && !firstGuest.name && !firstGuest.id_number) {
-        setFirstGuest(prev => ({
-          ...prev,
-          ...pData,
-        }))
+      // Fill primary guest first if it is empty and we haven't used it yet
+      if (!usedFirstGuest && !firstGuest.name && !firstGuest.id_number) {
+        usedFirstGuest = true
+        setFirstGuest(prev => ({ ...prev, ...pData }))
         setAutoFilled(af => new Set([...af, 'first_name', 'first_nationality', 'first_id']))
       } else {
         setPassengers(curr => {
@@ -335,15 +346,41 @@ export default function NewDriverTripPage() {
                     const hasCheckDigitWarning = pendingBatch.warnings.some(
                       w => p.passport_number && w.includes(p.passport_number)
                     )
+
+                    // ── Duplicate detection ────────────────────────────────────
+                    // 1. Already committed to the form (firstGuest / passengers)
+                    const pId = (p.passport_number || p.visa_number || '').trim().toUpperCase()
+                    const committedIds = new Set<string>()
+                    if (firstGuest.id_number) committedIds.add(firstGuest.id_number.trim().toUpperCase())
+                    passengers.forEach(fp => { if (fp.id_number) committedIds.add(fp.id_number.trim().toUpperCase()) })
+                    const isDupOfForm = pId.length > 0 && committedIds.has(pId)
+
+                    // 2. Same ID already appeared earlier in this pending batch
+                    const isDupOfBatch = pId.length > 0 && pendingBatch.passengers.some(
+                      (other, otherIdx) =>
+                        otherIdx < idx &&
+                        (other.passport_number || other.visa_number || '').trim().toUpperCase() === pId
+                    )
+
+                    const isDuplicate = isDupOfForm || isDupOfBatch
+
                     return (
-                      <tr key={idx} className={`border-b border-border/50 ${hasCheckDigitWarning ? 'bg-amber-50/50' : ''}`}>
+                      <tr
+                        key={idx}
+                        className={`border-b border-border/50 ${
+                          isDuplicate        ? 'bg-amber-50/70' :
+                          hasCheckDigitWarning ? 'bg-amber-50/30' : ''
+                        }`}
+                      >
                         <td className="py-2 px-2 text-xs text-text-secondary font-medium">{idx + 1}</td>
                         <td className="py-1 px-1">
                           <input
                             type="text"
                             value={p.full_name || ''}
                             onChange={e => updatePendingPassenger(idx, 'full_name', e.target.value)}
-                            className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                            className={`w-full bg-background border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent ${
+                              isDuplicate ? 'border-amber-400' : 'border-border'
+                            }`}
                             placeholder="Full name"
                           />
                         </td>
@@ -370,26 +407,35 @@ export default function NewDriverTripPage() {
                                 }
                               }}
                               className={`w-full bg-background border rounded px-2 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent ${
-                                hasCheckDigitWarning ? 'border-amber-400' : 'border-border'
+                                isDuplicate || hasCheckDigitWarning ? 'border-amber-400' : 'border-border'
                               }`}
                               placeholder="Passport or Visa number"
                             />
-                            {hasCheckDigitWarning && (
+                            {hasCheckDigitWarning && !isDuplicate && (
                               <span className="text-amber-600 text-xs font-bold flex-shrink-0" title="MRZ check-digit mismatch — verify manually">⚠</span>
                             )}
                           </div>
                         </td>
                         <td className="py-1 px-1 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removePendingPassenger(idx)}
-                            className="text-red-400 hover:text-red-600 p-1"
-                            title="Exclude this passenger"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          {isDuplicate ? (
+                            <span
+                              className="inline-block px-1.5 py-0.5 bg-amber-100 border border-amber-300 text-amber-700 text-[10px] font-bold rounded whitespace-nowrap"
+                              title={isDupOfForm ? 'This passenger is already in the form' : 'Same ID as another row above'}
+                            >
+                              Duplicate
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => removePendingPassenger(idx)}
+                              className="text-red-400 hover:text-red-600 p-1"
+                              title="Exclude this passenger"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )
@@ -411,7 +457,25 @@ export default function NewDriverTripPage() {
                   onClick={confirmBatch}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:bg-accent/90"
                 >
-                  Confirm All ({pendingBatch.passengers.length})
+                  {(() => {
+                    // Count how many rows will actually be added (non-duplicates of committed form)
+                    const committed = new Set<string>()
+                    if (firstGuest.id_number) committed.add(firstGuest.id_number.trim().toUpperCase())
+                    passengers.forEach(p => { if (p.id_number) committed.add(p.id_number.trim().toUpperCase()) })
+                    let addCount = 0
+                    const seen = new Set<string>()
+                    pendingBatch.passengers.forEach(p => {
+                      const id = (p.passport_number || p.visa_number || '').trim().toUpperCase()
+                      if (!id || (!committed.has(id) && !seen.has(id))) {
+                        addCount++
+                        if (id) seen.add(id)
+                      }
+                    })
+                    const dupCount = pendingBatch.passengers.length - addCount
+                    return dupCount > 0
+                      ? `Confirm ${addCount} (skip ${dupCount} duplicate${dupCount > 1 ? 's' : ''})`
+                      : `Confirm All (${addCount})`
+                  })()}
                 </button>
               </div>
             </div>
