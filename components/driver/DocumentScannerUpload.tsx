@@ -12,17 +12,23 @@ export type { ExtractedPassenger, ScanResult }
 
 // ─── Limits ─────────────────────────────────────────────────────────────────
 const MAX_BATCH      = 12   // hard cap — user sees a clear error if exceeded
-const MAX_CONCURRENT = 4    // max Gemini API requests in-flight at once
+const MAX_CONCURRENT = 6    // max Gemini API requests in-flight at once
+                            // raised 4→6: safe because 429s are now auto-retried
+                            // with exponential back-off (see scanWithRetry)
 
 // ─── PDF detection ──────────────────────────────────────────────────────────
 function isPdf(file: File): boolean {
   return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
 
-// ─── Image resize (cost control + accuracy) ──────────────────────────────────
+// ─── Image resize (speed + accuracy balance) ────────────────────────────────
 // All resizes run in parallel BEFORE the concurrency pool so scan slots are
 // purely network I/O — no CPU blocking during scanning.
-const MAX_PX = 1536
+// 1024 px: ~33 % smaller payload vs 1536 px → ~20-30 % faster Gemini round-trip.
+// Passports, visas, and Iqamas are fully legible at this resolution; MRZ lines
+// remain machine-readable. Increase back to 1536 only if OCR accuracy drops
+// on very small-font documents (e.g. dense passenger-list tables).
+const MAX_PX = 1024
 
 async function resizeImage(file: File): Promise<File> {
   if (isPdf(file)) return file
@@ -81,28 +87,47 @@ async function runWithConcurrency<T>(
 // ─── Network retry helper ────────────────────────────────────────────────────
 const MAX_RETRIES = 3
 
+// HTTP status codes that are transient and safe to retry automatically.
+// 429 = rate limited, 500 = server crash, 503/504 = Gemini overload / timeout.
+// 422 (unprocessable) and 400 (bad input) are NOT retried — they are permanent.
+const RETRYABLE_STATUSES = new Set([429, 500, 503, 504])
+
 async function scanWithRetry(
   resizedFile: File,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
-  let lastErr: unknown
+  let lastResult: { ok: boolean; status: number; data: unknown } | null = null
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Exponential backoff before every retry: 1 s, 2 s
     if (attempt > 0) {
       await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)))
     }
+
     try {
       const fd = new FormData()
       fd.append('file', resizedFile)
       const res  = await fetch('/api/scan-document', { method: 'POST', body: fd })
       const data = await res.json()
-      return { ok: res.ok, status: res.status, data }
+
+      // Success or a permanent client error — return immediately
+      if (res.ok || !RETRYABLE_STATUSES.has(res.status)) {
+        return { ok: res.ok, status: res.status, data }
+      }
+
+      // Transient server error — save result and retry if attempts remain
+      lastResult = { ok: false, status: res.status, data }
     } catch (err) {
-      lastErr = err
+      // fetch() itself threw (network offline, DNS failure, etc.)
+      lastResult = {
+        ok: false,
+        status: 0,
+        data: { error: err instanceof Error ? err.message : 'Network error' },
+      }
     }
   }
 
-  const msg = lastErr instanceof Error ? lastErr.message : 'Network error'
-  return { ok: false, status: 0, data: { error: msg } }
+  // All retries exhausted — return the last result
+  return lastResult ?? { ok: false, status: 0, data: { error: 'Network error' } }
 }
 
 function truncateName(name: string, max = 28): string {

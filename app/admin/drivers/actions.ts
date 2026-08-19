@@ -1,4 +1,4 @@
-﻿'use server'
+'use server'
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -231,7 +231,7 @@ export async function deleteDriver(
 ): Promise<ActionError | ActionSuccess> {
   const adminClient = createAdminClient()
 
-  // Fetch auth_user_id + name for the Supabase Auth deletion
+  // 1. Fetch auth_user_id + name for the Supabase Auth deletion
   const { data: driver, error: fetchError } = await adminClient
     .from('drivers')
     .select('auth_user_id, full_name')
@@ -242,27 +242,56 @@ export async function deleteDriver(
     return { error: 'Driver not found.' }
   }
 
+  // 2. Pre-nullify FK references on trips and vehicle_inspections.
+  //    The migration (20260819000000_fix_driver_delete_cascade.sql) changes
+  //    these FKs to ON DELETE SET NULL, but we also do it explicitly here
+  //    as belt-and-suspenders — ensuring the downstream auth.users → profiles
+  //    → drivers cascade is never blocked by a RESTRICT constraint.
+  //    Type assertion required: generated types predate the nullable migration
+  //    and still declare driver_id as string. The cast sends a real SQL NULL.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await adminClient.from('trips').update({ driver_id: null } as any).eq('driver_id', id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await adminClient
+    .from('vehicle_inspections')
+    .update({ driver_id: null } as any)
+    .eq('driver_id', id)
+
   if (driver.auth_user_id) {
-    // Deleting the auth user cascades → profiles → drivers (ON DELETE CASCADE)
+    // 3. Deleting the auth user cascades → profiles → drivers (ON DELETE CASCADE)
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(
       driver.auth_user_id
     )
 
     if (deleteError) {
-      // FK violation: driver has trips or inspections (ON DELETE RESTRICT)
-      if (
-        deleteError.message?.includes('23503') ||
-        deleteError.message?.toLowerCase().includes('foreign key')
-      ) {
+      // Auth Admin errors wrap Postgres errors differently from the DB client.
+      // Inspect message, code, and status to reliably detect FK violations.
+      const rawMsg: string = deleteError.message ?? ''
+      const isFK =
+        rawMsg.includes('23503') ||
+        rawMsg.toLowerCase().includes('foreign key') ||
+        (deleteError as unknown as { code?: string }).code === '23503'
+
+      if (isFK) {
         return {
           error: `Cannot delete "${driver.full_name}" — this driver has existing trips or vehicle inspections on record. Suspend the account instead, or delete all associated trips first.`,
         }
       }
-      return { error: `Failed to delete driver account: ${deleteError.message}` }
+
+      // Safe fallback: never expose raw {} to the UI
+      const safeMsg = rawMsg || `status ${(deleteError as unknown as { status?: number }).status ?? 'unknown'}`
+      return { error: `Failed to delete driver account: ${safeMsg}` }
     }
   } else {
-    // No auth user linked - delete driver row directly
-    await adminClient.from('drivers').delete().eq('id', id)
+    // 4. No auth user linked — delete driver row directly
+    const { error: directDeleteError } = await adminClient
+      .from('drivers')
+      .delete()
+      .eq('id', id)
+
+    if (directDeleteError) {
+      return { error: `Failed to delete driver record: ${directDeleteError.message}` }
+    }
   }
 
   revalidatePath('/admin/drivers')

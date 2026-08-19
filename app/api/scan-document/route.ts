@@ -1,5 +1,6 @@
-// Extend serverless timeout to 30 s — Gemini Flash calls can take 12-15 s
-export const maxDuration = 30
+// Extend serverless timeout to 60 s — gives 25 s AI timeout + 5 s buffer +
+// headroom for large table documents (50 passengers ≈ 4000 tokens).
+export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
@@ -144,22 +145,39 @@ export async function POST(req: NextRequest) {
     // and generation params live in the `config` object alongside the model.
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
-    const aiResult = await ai.models.generateContent({
-      model: AI_MODEL,
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        ...GENERATION_CONFIG,
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType, data: base64Image } },
-            { text: 'Extract.' },
-          ],
+    // ── 25 s hard timeout via Promise.race ───────────────────────────────────
+    // The @google/genai SDK (v2.17.1) does not expose an AbortSignal option on
+    // generateContent, so we race the call against a rejection promise.
+    // This leaves a 5 s buffer before Vercel's 60 s serverless kill, ensuring
+    // we always return a clean JSON error rather than a cold-kill 504.
+    const AI_TIMEOUT_MS = 25_000
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(Object.assign(new Error('AI_TIMEOUT'), { isTimeout: true })),
+        AI_TIMEOUT_MS,
+      )
+    )
+
+    const aiResult = await Promise.race([
+      ai.models.generateContent({
+        model: AI_MODEL,
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          ...GENERATION_CONFIG,
         },
-      ],
-    })
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType, data: base64Image } },
+              { text: 'Extract.' },
+            ],
+          },
+        ],
+      }),
+      timeoutPromise,
+    ])
 
     // ── Parse response ────────────────────────────────────────────────────────
     let raw = (aiResult.text ?? '').trim()
@@ -265,12 +283,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result)
 
   } catch (error: unknown) {
-    const err = error as { status?: number; message?: string; code?: string }
-    console.error('[scan-document] Error:', err?.message)
-
-    // Map Gemini error signals to the same 422 category the frontend expects
-    // for unprocessable images (invalid content, safety blocks, bad format, etc.)
+    const err = error as { status?: number; message?: string; code?: string; isTimeout?: boolean }
     const msg = err?.message ?? ''
+    console.error('[scan-document] Error:', msg || error)
+
+    // ── Timeout (our own Promise.race rejection) ─────────────────────────────
+    if (err?.isTimeout) {
+      return NextResponse.json(
+        { error: 'Scan timed out — the AI took too long. Please try again.' },
+        { status: 503 }
+      )
+    }
+
+    // ── Gemini transient overload / deadline errors → 503 (safe to retry) ───
+    if (
+      err?.status === 503 ||
+      msg.includes('503') ||
+      msg.includes('UNAVAILABLE') ||
+      msg.includes('Deadline expired') ||
+      msg.includes('overloaded')
+    ) {
+      return NextResponse.json(
+        { error: 'The AI service is temporarily busy. Please try again in a moment.' },
+        { status: 503 }
+      )
+    }
+
+    // ── Gemini content / format errors → 422 (not retryable) ────────────────
     if (
       err?.status === 400 ||
       msg.includes('INVALID_ARGUMENT') ||
@@ -284,6 +323,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── Fallback ─────────────────────────────────────────────────────────────
     return NextResponse.json(
       { error: msg || 'Scan failed. Please try again.' },
       { status: err?.status || 500 }
