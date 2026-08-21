@@ -168,15 +168,25 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
             <p className="text-sm font-bold text-[#1F2430] mb-8">
               إقرار السائق: أقر بأنني قمت بفحص الحافلة والتأكد من سلامتها وجاهزيتها قبل التشغيل.
             </p>
-            <div className="flex justify-center">
-              {COMPANY.stamp_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={COMPANY.stamp_url} alt="Stamp" className="w-48 h-48 object-contain mix-blend-multiply" />
-              ) : (
-                <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
-                  <p className="text-[10px] text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
-                </div>
-              )}
+            <div className="flex justify-between items-end">
+              <div className="w-32 text-right">
+                {/* Spacer for flex-between balance */}
+              </div>
+              <div className="flex justify-center">
+                {COMPANY.stamp_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={COMPANY.stamp_url} alt="Stamp" className="w-48 h-48 object-contain mix-blend-multiply" />
+                ) : (
+                  <div className="w-32 h-32 rounded-full border-2 border-dashed border-[#14213D] flex items-center justify-center">
+                    <p className="text-[10px] text-[#14213D] text-center font-bold">الختم<br/>OFFICIAL<br/>STAMP</p>
+                  </div>
+                )}
+              </div>
+              <div className="w-32 text-left" dir="ltr">
+                <p className="text-[10px] font-mono font-bold text-[#6B7280] uppercase tracking-widest whitespace-nowrap">
+                  TRIP NO: {(trip as any).trip_number || '—'}
+                </p>
+              </div>
             </div>
           </div>
 
