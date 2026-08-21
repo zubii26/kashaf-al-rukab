@@ -123,18 +123,29 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 0; }
-          body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+          body { 
+            margin: 0; 
+            padding: 0;
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact; 
+            background: white; 
+          }
           .page-wrapper {
-             width: 100% !important;
-             height: 100vh !important;
-             min-height: 0 !important;
-             max-height: none !important;
-             margin: 0 !important;
+             width: 210mm !important;
+             height: 296mm !important;
+             min-height: 296mm !important;
+             max-height: 296mm !important;
+             margin: 0 auto !important;
+             padding: 0 !important;
+             box-sizing: border-box !important;
              box-shadow: none !important;
-             page-break-after: always;
+             overflow: hidden !important;
+             page-break-after: always !important;
+             break-after: page !important;
           }
           .page-wrapper:last-child {
-             page-break-after: auto;
+             page-break-after: auto !important;
+             break-after: auto !important;
           }
         }
       `}</style>
