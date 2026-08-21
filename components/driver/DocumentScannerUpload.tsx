@@ -182,6 +182,7 @@ interface Props {
 export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
   const [overallStatus, setOverallStatus] = useState<OverallStatus>('idle')
   const [staged,        setStaged]        = useState<StagedFile[]>([])
+  const [previewImage,  setPreviewImage]  = useState<string | null>(null)
   const [fileSlots,     setFileSlots]     = useState<FileSlot[]>([])
   const [lastWarnings,  setLastWarnings]  = useState<string[]>([])
   const [dupSkipped,    setDupSkipped]    = useState(0)   // count of rejected duplicates
@@ -737,9 +738,14 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
                 >
                   {/* Thumbnail */}
                   {slot.thumbUrl && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-border/40">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(slot.thumbUrl)}
+                      className="flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-border/40 hover:opacity-80 hover:ring-2 hover:ring-accent transition-all focus:outline-none focus:ring-2 focus:ring-accent"
+                      title="Click to view full image"
+                    >
                       <img src={slot.thumbUrl} alt="" className="w-full h-full object-cover" />
-                    </div>
+                    </button>
                   )}
 
                   {/* Status icon */}
@@ -842,6 +848,33 @@ export function DocumentScannerUpload({ onBatchScanSuccess }: Props) {
         )}
 
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] w-full h-full flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-2 right-2 md:top-0 md:-right-12 w-10 h-10 bg-black/60 hover:bg-danger text-white rounded-full flex items-center justify-center transition-colors focus:outline-none"
+              aria-label="Close preview"
+            >
+              <X size={24} />
+            </button>
+            <img 
+              src={previewImage} 
+              alt="Full Preview" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

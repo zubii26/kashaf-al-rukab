@@ -151,7 +151,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
           <div style={{ position: 'absolute', inset: 6, border: '2px dotted #7d333b', pointerEvents: 'none' }} />
-          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 6, fontWeight: 600 }}>
 
             {/* الترويسة الموحدة */}
             <PrintHeader title="عقد نقل على الطرق البرية" />
@@ -163,26 +163,26 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* النص القانوني */}
-            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#1F2430', textAlign: 'justify' }}>{LEGAL_CLAUSE}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#111827', textAlign: 'justify', fontWeight: 700 }}>{LEGAL_CLAUSE}</div>
 
             <div style={{ fontSize: 15 }}>وبناءً على ما سبق تم إبرام عقد النقل بين الأطراف الآتية:</div>
 
             {/* الأطراف */}
             <div style={{ fontSize: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div><span style={{ fontWeight: 700, color: '#7d333b' }}>الطرف الأول: </span><span style={{ fontWeight: 700 }}>{COMPANY.nameAr}</span></div>
-              <div><span style={{ fontWeight: 700, color: '#7d333b' }}>الطرف الثاني: </span><span style={{ fontWeight: 700 }}>السيد/ {partyTwo}</span></div>
+              <div><span style={{ fontWeight: 900, color: '#7d333b' }}>الطرف الأول: </span><span style={{ fontWeight: 900 }}>{COMPANY.nameAr}</span></div>
+              <div><span style={{ fontWeight: 900, color: '#7d333b' }}>الطرف الثاني: </span><span style={{ fontWeight: 900 }}>السيد/ {partyTwo}</span></div>
             </div>
 
             {/* تفاصيل الرحلة */}
-            <div style={{ fontSize: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div><span style={{ fontWeight: 900 }}>النقل من: </span><span style={{ fontWeight: 700, color: '#7d333b', textTransform: 'uppercase' }}>{trip.pickup_location}</span></div>
-              <div><span style={{ fontWeight: 900 }}>وصولاً إلى: </span><span style={{ fontWeight: 700, color: '#7d333b', textTransform: 'uppercase' }}>{trip.dropoff_location}</span></div>
-              <div><span style={{ fontWeight: 900 }}>يوم: </span><span style={{ fontWeight: 700, color: '#7d333b' }}>{dayAR} — {dateAR}</span></div>
-              <div><span style={{ fontWeight: 900 }}>سعر الرحلة: </span><span style={{ fontWeight: 700, color: '#7d333b' }}>{trip.price_type === 'deferred' ? 'آجل' : 'نقدي'} ر.س</span></div>
+            <div style={{ fontSize: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div><span style={{ fontWeight: 900 }}>النقل من: </span><span style={{ fontWeight: 900, color: '#7d333b', textTransform: 'uppercase' }}>{trip.pickup_location}</span></div>
+              <div><span style={{ fontWeight: 900 }}>وصولاً إلى: </span><span style={{ fontWeight: 900, color: '#7d333b', textTransform: 'uppercase' }}>{trip.dropoff_location}</span></div>
+              <div><span style={{ fontWeight: 900 }}>يوم: </span><span style={{ fontWeight: 900, color: '#7d333b' }}>{dayAR} — {dateAR}</span></div>
+              <div><span style={{ fontWeight: 900 }}>سعر الرحلة: </span><span style={{ fontWeight: 900, color: '#7d333b' }}>{trip.price_type === 'deferred' ? 'آجل' : 'نقدي'} ر.س</span></div>
             </div>
 
             {/* سياسة الإلغاء */}
-            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#1F2430', textAlign: 'justify' }}>{CANCELLATION_POLICY}</div>
+            <div style={{ fontSize: 13, lineHeight: 1.75, color: '#111827', textAlign: 'justify', fontWeight: 700 }}>{CANCELLATION_POLICY}</div>
 
             <div style={{ fontSize: 14, color: '#1F2430', lineHeight: 1.75 }}>
               اتفق الطرفان على أن ينفذ الطرف الأول عملية النقل للطرف الثاني مع مرافقيه من الموقع المحدد مسبقاً وتوصيلهم إلى الجهة المحددة بالعقد.
