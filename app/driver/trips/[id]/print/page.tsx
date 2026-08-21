@@ -189,12 +189,20 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* الختم — يظهر فقط إذا تم رفع الختم */}
-            {COMPANY.stamp_url && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 150, height: 150, objectFit: 'contain' }} />
+            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div style={{ width: 150 }}></div>
+              {COMPANY.stamp_url ? (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 150, height: 150, objectFit: 'contain' }} />
+                </div>
+              ) : (
+                <div style={{ width: 150, height: 150 }}></div>
+              )}
+              <div style={{ width: 150, textAlign: 'left', direction: 'ltr' }}>
+                <p style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold', color: '#14213D', letterSpacing: 1 }}>TRIP NO: {(trip as any).trip_number || '—'}</p>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -316,17 +324,26 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
             </div>
 
             {/* ── التذييل: عدد الركاب + الختم ── */}
-            <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '2px solid #14213D', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '3px 12px', borderRadius: 4 }}>
-                إجمالي الركاب: {passengers.length}
-              </div>
-              {COMPANY.stamp_url && (
-                <div style={{ textAlign: 'center' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={COMPANY.stamp_url} alt="الختم" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+            <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '2px solid #14213D', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                <div style={{ fontSize: 12, color: '#6B7280' }}>للاستفسار: {COMPANY.contactPhone}</div>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#14213D', background: '#F7F9FC', border: '1px solid #E2E6EC', padding: '3px 12px', borderRadius: 4 }}>
+                    إجمالي الركاب: {passengers.length}
+                  </span>
                 </div>
-              )}
+              </div>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                {COMPANY.stamp_url && (
+                  <div style={{ textAlign: 'center' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={COMPANY.stamp_url} alt="الختم" style={{ width: 90, height: 90, objectFit: 'contain' }} />
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1, textAlign: 'left', direction: 'ltr' }}>
+                <p style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold', color: '#14213D', letterSpacing: 1 }}>TRIP NO: {(trip as any).trip_number || '—'}</p>
+              </div>
             </div>
 
           </div>
@@ -392,12 +409,22 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
               <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2430', marginBottom: 12 }}>
                 إقرار السائق: أقر بأنني قمت بفحص الحافلة والتأكد من سلامتها وجاهزيتها قبل التشغيل.
               </div>
-              {COMPANY.stamp_url && (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 140, height: 140, objectFit: 'contain' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ width: 140 }}></div>
+                {COMPANY.stamp_url ? (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={COMPANY.stamp_url} alt="الختم الرسمي" style={{ width: 140, height: 140, objectFit: 'contain' }} />
+                  </div>
+                ) : (
+                  <div style={{ width: 140, height: 140, borderRadius: '50%', border: '2px dashed #14213D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ fontSize: 10, color: '#14213D', textAlign: 'center', fontWeight: 'bold' }}>الختم<br/>OFFICIAL<br/>STAMP</p>
+                  </div>
+                )}
+                <div style={{ width: 140, textAlign: 'left', direction: 'ltr' }}>
+                  <p style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 'bold', color: '#14213D', letterSpacing: 1 }}>TRIP NO: {(trip as any).trip_number || '—'}</p>
                 </div>
-              )}
+              </div>
             </div>
 
           </div>
