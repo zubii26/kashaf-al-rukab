@@ -127,11 +127,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
                 <div className="flex gap-3">
                   {contract && (
                     <Link
-                      href={`/driver/trips/${trips?.[0]?.id}/print-contract`}
+                      href={`/driver/trips/${trips?.[0]?.id}/print`}
                       target="_blank"
                       className="px-4 py-2 border border-border rounded-md text-sm font-medium text-text-primary hover:bg-surface transition-colors"
                     >
-                      🖨 Print Contract
+                      🖨 Print Documents
                     </Link>
                   )}
                 </div>
