@@ -52,8 +52,8 @@ export default async function PrintContractDocument({ params }: { params: Promis
 
       <div className="bg-white w-full max-w-[210mm] print:max-w-none print:w-full relative" style={{ minHeight: '297mm', fontFamily: "'Segoe UI', Arial, sans-serif" }}>
         
-        {/* Border wrapper for styling like PDF */}
-        <div className="absolute inset-4 border-2 border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
+        {/* Outer decorative border */}
+        <div className="absolute inset-4 border-[5px] border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
 
         <div className="p-12 print:p-10 pt-16 print:pt-12" dir="rtl">
           
@@ -65,10 +65,10 @@ export default async function PrintContractDocument({ params }: { params: Promis
               <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
             </div>
             
-            <div className="text-center">
+            <div className="flex-1">
               {COMPANY.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={COMPANY.logo_url} alt="Logo" className="w-48 h-20 object-contain" />
+                <img src={COMPANY.logo_url} alt="Logo" className="w-72 h-32 object-contain" />
               ) : (
                 <div className="w-48 h-16 flex items-center justify-center">
                   <p className="text-[24px] font-black text-[#14213D] leading-tight" dir="ltr">{COMPANY.nameEn}</p>
@@ -79,14 +79,16 @@ export default async function PrintContractDocument({ params }: { params: Promis
             <div className="flex gap-4">
               <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                 {driver?.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={driver.photo_url} alt="Driver" className="w-[80px] h-[80px] object-cover border-2 border-[#14213D] rounded" style={{ objectPosition: 'top' }} />
+                  <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={driver.photo_url} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                  </div>
                 ) : (
-                  <div className="w-[80px] h-[80px] border-2 border-dashed border-[#E2E6EC] bg-[#F7F9FC] flex flex-col items-center justify-center rounded">
+                  <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <p className="text-[9px] text-[#9CA3AF] text-center">Driver<br/>Photo</p>
                   </div>
                 )}
-                <p className="text-[10px] font-bold text-[#7d333b] uppercase text-center">صورة السائق</p>
+                <p className="text-[10px] font-bold text-[#7d333b] uppercase text-center mt-0.5">صورة السائق</p>
               </div>
               <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

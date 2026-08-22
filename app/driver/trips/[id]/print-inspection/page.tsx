@@ -99,7 +99,7 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
         style={{ minHeight: '297mm', fontFamily: "'Segoe UI', Arial, sans-serif" }}
       >
         {/* Border wrapper for styling like PDF */}
-        <div className="absolute inset-4 border-[3px] border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
+        <div className="absolute inset-4 border-[5px] border-dotted border-[#7d333b] print:inset-2 pointer-events-none"></div>
 
         <div className="p-12 print:p-8 pt-16 print:pt-10">
           
@@ -111,10 +111,10 @@ export default async function PrintInspectionDocument({ params }: { params: Prom
               <p className="text-sm font-bold text-[#6B7280]">ترخيص رقم: {COMPANY.licenseNumber}</p>
             </div>
             
-            <div className="text-center">
+            <div className="flex-1">
               {COMPANY.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={COMPANY.logo_url} alt="Logo" className="w-48 h-20 object-contain" />
+                <img src={COMPANY.logo_url} alt="Logo" className="w-72 h-32 object-contain" />
               ) : (
                 <div className="w-48 h-16 flex items-center justify-center">
                   <p className="text-[24px] font-black text-[#14213D] leading-tight" dir="ltr">{COMPANY.nameEn}</p>

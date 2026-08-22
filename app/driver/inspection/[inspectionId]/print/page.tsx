@@ -65,7 +65,7 @@ export default async function StandaloneInspectionPrint({
           body { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; background: white; }
           .page { max-width: 210mm; margin: 0 auto; padding: 12mm; }
           .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #1e3a5f; padding-bottom: 10px; margin-bottom: 14px; }
-          .logo { height: 56px; object-fit: contain; }
+          .logo { height: 90px; object-fit: contain; }
           .company-info { text-align: right; }
           .company-name-ar { font-size: 15px; font-weight: bold; color: #1e3a5f; }
           .company-name-en { font-size: 11px; color: #555; }

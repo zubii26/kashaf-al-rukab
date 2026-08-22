@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Map, MessageSquare, UserCircle, LogOut, FileText } from 'lucide-react'
+import { Map, MessageSquare, UserCircle, LogOut, FileText, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const navLinks = [
@@ -16,11 +17,16 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  function handleLogout() {
+    setIsLoggingOut(true)
+    
+    // Fire and forget the logout to clear cookies immediately without blocking UI
+    supabase.auth.signOut().catch(console.error)
+    
+    // Instantly force a hard redirect to the login page to wipe all client state
+    window.location.href = '/login'
   }
 
   return (
@@ -56,10 +62,11 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
         <div className="flex items-center space-x-4">
           <button 
             onClick={handleLogout}
-            className="flex items-center space-x-2 px-3 py-2 rounded-md text-danger hover:bg-danger/10 transition-colors"
+            disabled={isLoggingOut}
+            className="flex items-center space-x-2 px-3 py-2 rounded-md text-danger hover:bg-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <LogOut size={18} />
-            <span className="font-medium text-sm hidden sm:inline">Logout</span>
+            {isLoggingOut ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
+            <span className="font-medium text-sm hidden sm:inline">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
           </button>
         </div>
       </header>

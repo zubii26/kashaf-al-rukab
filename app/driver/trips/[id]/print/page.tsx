@@ -93,7 +93,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       {/* المنتصف: الشعار والعنوان */}
       <div style={{ flex: '1.5 1 0%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 60, objectFit: 'contain', maxWidth: 180, marginBottom: 8 }} />
+        <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 90, objectFit: 'contain', maxWidth: 260, marginBottom: 8 }} />
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ display: 'inline-block', border: '2px solid #7d333b', padding: '2px 24px', borderRadius: 4, background: '#F7F9FC' }}>
             <div style={{ fontSize: 15, fontWeight: 900, color: '#7d333b' }}>{title}</div>
@@ -105,14 +105,16 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       <div style={{ flex: '1 1 0%', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', gap: 16 }}>
         <div style={{ textAlign: 'center' }}>
           {driver?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={driver.photo_url} alt="السائق" style={{ width: 60, height: 60, objectFit: 'cover', border: '2px solid #14213D', borderRadius: 4 }} />
+            <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={driver.photo_url} alt="السائق" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+            </div>
           ) : (
-            <div style={{ width: 60, height: 60, border: '2px dashed #ccc', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F9FC' }}>
+            <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
             </div>
           )}
-          <div style={{ fontSize: 10, color: '#7d333b', fontWeight: 700, marginTop: 2 }}>السائق</div>
+          <div style={{ fontSize: 10, color: '#7d333b', fontWeight: 700, marginTop: 4 }}>السائق</div>
         </div>
       </div>
     </div>
@@ -161,7 +163,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       {/* ══ صفحة 1: عقد النقل ══ */}
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
-          <div style={{ position: 'absolute', inset: 6, border: '2px dotted #7d333b', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 6, border: '5px dotted #7d333b', pointerEvents: 'none' }} />
           <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 6, fontWeight: 600 }}>
 
             {/* الترويسة الموحدة */}
@@ -221,7 +223,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       {/* ══ صفحة 2: بيانات السائق والركاب ══ */}
       <div className="page-wrapper w-[210mm] min-h-[297mm] mb-6 print:mb-0 shadow-lg print:shadow-none bg-white">
         <div style={pageStyle} className="h-full">
-          <div style={{ position: 'absolute', inset: 6, border: '2px dotted #7d333b', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 6, border: '5px dotted #7d333b', pointerEvents: 'none' }} />
           <div style={{ padding: '16px 28px', direction: 'rtl', minHeight: '297mm', display: 'flex', flexDirection: 'column', gap: 0 }}>
 
             {/* ── الترويسة: شعار + اسم الشركة ── */}
@@ -233,7 +235,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
               {/* وسط: الشعار */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 70, objectFit: 'contain', maxWidth: 200 }} />
+                <img src={COMPANY.logo_url || '/logo.png'} alt="شعار" style={{ height: 100, objectFit: 'contain', maxWidth: 280 }} />
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#7d333b', textAlign: 'center' }}>بيانات السائق والركاب</div>
               </div>
               {/* يسار: الاسم الإنجليزي + الترخيص */}
@@ -364,7 +366,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
       {/* ══ صفحة 3: سجل الفحص اليومي ══ */}
       <div className="page-wrapper w-[210mm] min-h-[297mm] bg-white shadow-lg print:shadow-none">
         <div style={pageStyle} className="h-full">
-          <div style={{ position: 'absolute', inset: 6, border: '2px dotted #7d333b', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: 6, border: '5px dotted #7d333b', pointerEvents: 'none' }} />
           <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
             {/* الترويسة الموحدة */}

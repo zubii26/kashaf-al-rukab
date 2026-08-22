@@ -105,8 +105,9 @@ export async function createDriver(
 
     if (uploadError) {
       console.error('Photo upload error (non-fatal):', uploadError)
-    } else {
-      photo_url = data?.path || null
+    } else if (data) {
+      const { data: publicUrlData } = adminClient.storage.from('secure_uploads').getPublicUrl(data.path)
+      photo_url = publicUrlData.publicUrl
     }
   }
 
@@ -130,8 +131,8 @@ export async function createDriver(
       .insert({
         plate_number:        new_vehicle_plate,
         vehicle_type:        new_vehicle_type?.trim()          || '',
-        registration_number: new_vehicle_registration?.trim()  || null,
-        registration_expiry: new_vehicle_expiry                || null,
+        registration_number: new_vehicle_registration?.trim()  || '',
+        registration_expiry: new_vehicle_expiry                || '',
       })
       .select()
       .single()
@@ -193,29 +194,66 @@ export async function updateDriver(formData: FormData) {
   const card_number      = formData.get('card_number') as string
   const vehicle_id       = formData.get('vehicle_id') as string | null
   const status           = formData.get('status') as 'active' | 'suspended'
+  const photo_file       = formData.get('photo_file') as File | null
+
+  const { data: driver } = await adminClient
+    .from('drivers')
+    .select('auth_user_id, photo_url')
+    .eq('id', id)
+    .single()
+
+  let new_photo_url: string | undefined = undefined
+
+  if (photo_file && photo_file.size > 0 && driver?.auth_user_id) {
+    const fileExt = photo_file.name.split('.').pop()
+    const fileName = `${driver.auth_user_id}-${Math.random()}.${fileExt}`
+    const filePath = `drivers/${fileName}`
+
+    const { error: uploadError, data } = await adminClient.storage
+      .from('secure_uploads')
+      .upload(filePath, photo_file)
+
+    if (!uploadError && data) {
+      const { data: publicUrlData } = adminClient.storage.from('secure_uploads').getPublicUrl(data.path)
+      new_photo_url = publicUrlData.publicUrl
+
+      // Try to delete the old photo if it exists
+      if (driver.photo_url) {
+        try {
+          const urlParts = driver.photo_url.split('/secure_uploads/')
+          if (urlParts.length === 2) {
+            const oldPath = urlParts[1]
+            await adminClient.storage.from('secure_uploads').remove([oldPath])
+          }
+        } catch (e) {
+          console.error('Failed to delete old photo:', e)
+        }
+      }
+    }
+  }
+
+  const updatePayload: any = {
+    full_name,
+    nationality,
+    mobile_number,
+    residence_number,
+    card_number,
+    vehicle_id: vehicle_id || null,
+    status,
+  }
+  
+  if (new_photo_url !== undefined) {
+    updatePayload.photo_url = new_photo_url
+  }
 
   const { error } = await adminClient
     .from('drivers')
-    .update({
-      full_name,
-      nationality,
-      mobile_number,
-      residence_number,
-      card_number,
-      vehicle_id: vehicle_id || null,
-      status,
-    })
+    .update(updatePayload)
     .eq('id', id)
 
   if (error) throw new Error(error.message)
 
   // Update profile name as well to keep in sync
-  const { data: driver } = await adminClient
-    .from('drivers')
-    .select('auth_user_id')
-    .eq('id', id)
-    .single()
-
   if (driver?.auth_user_id) {
     await adminClient.from('profiles').update({ full_name }).eq('id', driver.auth_user_id)
   }
@@ -234,12 +272,25 @@ export async function deleteDriver(
   // 1. Fetch auth_user_id + name for the Supabase Auth deletion
   const { data: driver, error: fetchError } = await adminClient
     .from('drivers')
-    .select('auth_user_id, full_name')
+    .select('auth_user_id, full_name, photo_url')
     .eq('id', id)
     .single()
 
   if (fetchError || !driver) {
     return { error: 'Driver not found.' }
+  }
+
+  // Try to delete the photo from storage
+  if (driver.photo_url) {
+    try {
+      const urlParts = driver.photo_url.split('/secure_uploads/')
+      if (urlParts.length === 2) {
+        const oldPath = urlParts[1]
+        await adminClient.storage.from('secure_uploads').remove([oldPath])
+      }
+    } catch (e) {
+      console.error('Failed to delete photo on driver deletion:', e)
+    }
   }
 
   // 2. Pre-nullify FK references on trips and vehicle_inspections.

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Car, UserSquare2, LogOut, Menu,
-  Settings, BookOpen, Navigation
+  Settings, BookOpen, Navigation, Loader2
 } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,12 +22,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const supabase = createClient()
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  function handleLogout() {
+    setIsLoggingOut(true)
+    
+    // Fire and forget the logout to clear cookies immediately without blocking UI
+    supabase.auth.signOut().catch(console.error)
+    
+    // Instantly force a hard redirect to the login page to wipe all client state
+    window.location.href = '/login'
   }
 
   return (
@@ -74,10 +79,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-border">
           <button 
             onClick={handleLogout}
-            className="flex items-center space-x-3 px-4 py-3 w-full rounded-md text-danger hover:bg-danger/10 transition-colors"
+            disabled={isLoggingOut}
+            className="flex items-center space-x-3 px-4 py-3 w-full rounded-md text-danger hover:bg-danger/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <LogOut size={20} />
-            <span className="font-medium">Logout</span>
+            {isLoggingOut ? <Loader2 size={20} className="animate-spin" /> : <LogOut size={20} />}
+            <span className="font-medium">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
           </button>
         </div>
       </aside>

@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PageLayout } from '@/components/layout/page-layout'
@@ -116,6 +116,27 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="space-y-2 pt-4 border-t border-border">
+                <label className="text-sm font-medium text-text-primary block">Driver Photo</label>
+                {driver.photo_url && (
+                  <div className="mb-3">
+                    <img 
+                      src={driver.photo_url} 
+                      alt="Current driver photo" 
+                      className="w-24 h-24 object-cover border-2 border-border rounded-md" 
+                    />
+                    <p className="text-xs text-text-secondary mt-1">Current photo</p>
+                  </div>
+                )}
+                <input
+                  name="photo_file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                />
+                <p className="text-xs text-text-secondary">Upload a new photo to replace the current one. Leave empty to keep the existing photo.</p>
               </div>
 
               <div className="pt-4 flex justify-end space-x-2">
