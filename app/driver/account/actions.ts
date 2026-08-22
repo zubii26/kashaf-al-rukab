@@ -20,15 +20,65 @@ export async function updateDriverProfileAction(formData: FormData) {
   const mobile_number    = (formData.get('mobile_number')    as string)?.trim()
   const residence_number = (formData.get('residence_number') as string)?.trim()
   const card_number      = (formData.get('card_number')      as string)?.trim()
+  const photo_file       = formData.get('photo_file') as File | null
 
   if (!full_name) throw new Error('Name is required')
 
   // Scope the update to the driver row that belongs to THIS user only.
   // Uses admin client because the drivers RLS only allows SELECT for drivers.
   const adminClient = createAdminClient()
+
+  const { data: existingDriver } = await adminClient
+    .from('drivers')
+    .select('photo_url')
+    .eq('auth_user_id', user.id)
+    .single()
+
+  let new_photo_url: string | undefined = undefined
+
+  if (photo_file && photo_file.size > 0) {
+    const fileExt = photo_file.name.split('.').pop()
+    const fileName = `${user.id}-${Math.random()}.${fileExt}`
+    const filePath = `drivers/${fileName}`
+
+    const { error: uploadError, data } = await adminClient.storage
+      .from('secure_uploads')
+      .upload(filePath, photo_file)
+
+    if (!uploadError && data) {
+      const { data: publicUrlData } = adminClient.storage.from('secure_uploads').getPublicUrl(data.path)
+      new_photo_url = publicUrlData.publicUrl
+
+      // Delete the old photo if it exists
+      if (existingDriver?.photo_url) {
+        try {
+          const urlParts = existingDriver.photo_url.split('/secure_uploads/')
+          if (urlParts.length === 2) {
+            const oldPath = urlParts[1]
+            await adminClient.storage.from('secure_uploads').remove([oldPath])
+          }
+        } catch (e) {
+          console.error('Failed to delete old photo:', e)
+        }
+      }
+    }
+  }
+
+  const updatePayload: any = { 
+    full_name, 
+    nationality, 
+    mobile_number, 
+    residence_number, 
+    card_number 
+  }
+  
+  if (new_photo_url !== undefined) {
+    updatePayload.photo_url = new_photo_url
+  }
+
   const { error } = await adminClient
     .from('drivers')
-    .update({ full_name, nationality, mobile_number, residence_number, card_number })
+    .update(updatePayload)
     .eq('auth_user_id', user.id)
 
   if (error) throw new Error(error.message)

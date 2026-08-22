@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useActionState } from 'react'
 import Link from 'next/link'
@@ -6,6 +6,8 @@ import { AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { createDriver, CreateDriverState } from '../actions'
+import { ImageCropper } from '@/components/ui/image-cropper'
+import { useState } from 'react'
 
 type Vehicle = {
   id: string
@@ -22,6 +24,14 @@ export default function NewDriverForm({ vehicles }: NewDriverFormProps) {
     createDriver,
     null
   )
+  const [croppedFile, setCroppedFile] = useState<File | null>(null)
+
+  const handleSubmit = (formData: FormData) => {
+    if (croppedFile) {
+      formData.set('photo_file', croppedFile)
+    }
+    formAction(formData)
+  }
 
   return (
     <Card>
@@ -29,7 +39,7 @@ export default function NewDriverForm({ vehicles }: NewDriverFormProps) {
         <CardTitle>Driver Details</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form action={handleSubmit} className="space-y-4">
 
           {state?.error && (
             <div className="flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-md text-danger text-sm">
@@ -106,7 +116,10 @@ export default function NewDriverForm({ vehicles }: NewDriverFormProps) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">Driver Photo</label>
-            <input name="photo_file" type="file" accept="image/jpeg,image/png,image/webp" className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+            <ImageCropper 
+              onCropComplete={setCroppedFile} 
+              currentImage={croppedFile ? URL.createObjectURL(croppedFile) : null} 
+            />
           </div>
 
           <div className="pt-4 flex justify-end space-x-2">

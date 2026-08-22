@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Globe, Phone, Pencil, X, Check, Loader2 } from 'lucide-react'
 import { updateDriverProfileAction } from './actions'
+import { ImageCropper } from '@/components/ui/image-cropper'
 
 interface DriverData {
   full_name: string
@@ -26,6 +27,7 @@ export function DriverProfileEditForm({ driver }: Props) {
   const [success, setSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [croppedFile, setCroppedFile] = useState<File | null>(null)
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -33,11 +35,16 @@ export function DriverProfileEditForm({ driver }: Props) {
     setSuccess(false)
     const formData = new FormData(e.currentTarget)
 
+    if (croppedFile) {
+      formData.set('photo_file', croppedFile)
+    }
+
     startTransition(async () => {
       try {
         await updateDriverProfileAction(formData)
         setSuccess(true)
         setEditing(false)
+        setCroppedFile(null)
         setTimeout(() => setSuccess(false), 4000)
       } catch (err: unknown) {
         setErrorMsg(err instanceof Error ? err.message : 'Failed to save. Please try again.')
@@ -127,29 +134,40 @@ export function DriverProfileEditForm({ driver }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Avatar + name header */}
-      <div className="flex items-center gap-5 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-5 mb-4 pb-4 border-b border-border">
         {driver.photo_url ? (
           <img
             src={driver.photo_url}
             alt={driver.full_name}
-            className="w-20 h-20 rounded-full object-cover border-2 border-border"
+            className="w-20 h-20 rounded-full object-cover border-2 border-border shrink-0"
           />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold flex-shrink-0">
+          <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold shrink-0">
             {driver.full_name.charAt(0)}
           </div>
         )}
-        <div>
-          <p className="text-xs text-text-secondary mb-1">Editing profile</p>
-          <span
-            className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-              driver.status === 'active'
-                ? 'bg-green-100 text-green-700'
-                : 'bg-red-100 text-red-700'
-            }`}
-          >
-            {driver.status}
-          </span>
+        <div className="space-y-2 flex-1">
+          <div>
+            <p className="text-xs text-text-secondary mb-1">Editing profile</p>
+            <span
+              className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                driver.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {driver.status}
+            </span>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-wide block mb-1">
+              Change Photo
+            </label>
+            <ImageCropper 
+              onCropComplete={setCroppedFile} 
+              currentImage={croppedFile ? URL.createObjectURL(croppedFile) : driver.photo_url} 
+            />
+          </div>
         </div>
       </div>
 

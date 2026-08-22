@@ -14,15 +14,24 @@ export default async function PrintContractDocument({ params }: { params: Promis
   const COMPANY = await getCompanySettings()
 
   // We fetch the trip data to construct the contract details dynamically for preview
-  const { data: trip } = await supabase
+  const { data: trip, error } = await supabase
     .from('trips')
     .select('*, drivers(photo_url)')
     .eq('id', id)
     .single()
 
-  if (!trip) notFound()
+  if (error || !trip) {
+    return <div className="p-8 text-red-500">حدث خطأ في تحميل بيانات الرحلة: {error?.message}</div>
+  }
 
   const driver = trip.drivers as any
+
+  // Helper to ensure backward compatibility with old database entries storing relative paths
+  const getResolvedImageUrl = (url: string | null) => {
+    if (!url) return null
+    if (url.startsWith('http')) return url
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/secure_uploads/${url}`
+  }
 
   const dateObj = new Date(trip.trip_date)
   const formattedDate = dateObj.toLocaleDateString('en-GB').replace(/\//g, '-')
@@ -75,7 +84,7 @@ export default async function PrintContractDocument({ params }: { params: Promis
                 {driver?.photo_url ? (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={driver.photo_url} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                    <img src={getResolvedImageUrl(driver.photo_url) as string} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                   </div>
                 ) : (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

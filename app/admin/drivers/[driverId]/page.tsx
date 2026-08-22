@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { updateDriver } from '../actions'
 import DeleteDriverButton from '@/components/admin/DeleteDriverButton'
-import Link from 'next/link'
+import EditDriverForm from './EditDriverForm'
 
 export default async function EditDriverPage({ params }: { params: Promise<{ driverId: string }> }) {
   const { driverId } = await params
@@ -32,120 +32,7 @@ export default async function EditDriverPage({ params }: { params: Promise<{ dri
             <CardTitle>Driver Details</CardTitle>
           </CardHeader>
           <CardContent>
-            <form action={updateDriver} className="space-y-4">
-              <input type="hidden" name="id" value={driver.id} />
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary">Full Name</label>
-                <input
-                  name="full_name"
-                  type="text"
-                  required
-                  defaultValue={driver.full_name}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Nationality</label>
-                  <input
-                    name="nationality"
-                    type="text"
-                    required
-                    defaultValue={driver.nationality}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Mobile Number <span className="text-xs text-text-secondary font-normal">(optional)</span></label>
-                  <input
-                    name="mobile_number"
-                    type="tel"
-                    defaultValue={driver.mobile_number}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Residence Number</label>
-                  <input
-                    name="residence_number"
-                    type="text"
-                    required
-                    defaultValue={driver.residence_number}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Card Number (Rukab)</label>
-                  <input
-                    name="card_number"
-                    type="text"
-                    required
-                    defaultValue={driver.card_number}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Assign Vehicle</label>
-                  <select
-                    name="vehicle_id"
-                    defaultValue={driver.vehicle_id || ''}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="">Unassigned</option>
-                    {vehicles?.map(v => (
-                      <option key={v.id} value={v.id}>{v.plate_number} - {v.vehicle_type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">Status</label>
-                  <select
-                    name="status"
-                    defaultValue={driver.status}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="active">Active</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-4 border-t border-border">
-                <label className="text-sm font-medium text-text-primary block">Driver Photo</label>
-                {driver.photo_url && (
-                  <div className="mb-3">
-                    <img 
-                      src={driver.photo_url} 
-                      alt="Current driver photo" 
-                      className="w-24 h-24 object-cover border-2 border-border rounded-md" 
-                    />
-                    <p className="text-xs text-text-secondary mt-1">Current photo</p>
-                  </div>
-                )}
-                <input
-                  name="photo_file"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                />
-                <p className="text-xs text-text-secondary">Upload a new photo to replace the current one. Leave empty to keep the existing photo.</p>
-              </div>
-
-              <div className="pt-4 flex justify-end space-x-2">
-                <Link href="/admin/drivers">
-                  <SecondaryButton type="button">Cancel</SecondaryButton>
-                </Link>
-                <PrimaryButton type="submit">Save Changes</PrimaryButton>
-              </div>
-            </form>
+            <EditDriverForm driver={driver} vehicles={vehicles} />
           </CardContent>
         </Card>
 

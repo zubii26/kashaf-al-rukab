@@ -32,6 +32,13 @@ export default async function PrintContractDocument({ params }: { params: Promis
   const trip = trips?.[0]
   const driver = trip?.drivers as any
 
+  // Helper to ensure backward compatibility with old database entries storing relative paths
+  const getResolvedImageUrl = (url: string | null) => {
+    if (!url) return null
+    if (url.startsWith('http')) return url
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/secure_uploads/${url}`
+  }
+
   const dateObj = new Date(contract.contract_date)
   // YYYY-MM-DD format to match the reference document design
   const formattedDate = dateObj.toISOString().split('T')[0]
@@ -81,7 +88,7 @@ export default async function PrintContractDocument({ params }: { params: Promis
                 {driver?.photo_url ? (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={driver.photo_url} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                    <img src={getResolvedImageUrl(driver.photo_url) as string} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                   </div>
                 ) : (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
