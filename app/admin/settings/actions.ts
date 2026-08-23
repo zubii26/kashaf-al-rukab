@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -65,7 +65,6 @@ export async function saveCompanySettings(formData: FormData) {
 
   if (error) throw new Error('Failed to save settings: ' + error.message)
 
-  revalidateTag('company-settings')
   revalidatePath('/admin/settings')
   redirect('/admin/settings')
 }

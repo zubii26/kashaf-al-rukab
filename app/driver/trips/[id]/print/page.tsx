@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import PrintButton from './print-button'
 import { getCompanySettings } from '@/lib/company-settings'
 import { getDriverPhotoUrl } from '@/lib/storage-url'
+import { generateQRSvg } from '@/lib/qr'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
@@ -47,6 +48,11 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
   if (!trip) notFound()
 
+  // Generate QR code server-side — encodes the public verify URL for this trip.
+  // The /verify/[id] page is unauthenticated and shows the full trip record.
+  const verifyUrl = `${APP_URL}/verify/${id}`
+  const qrSvg = await generateQRSvg(verifyUrl)
+
 
   const { data: tripPassengers } = await admin
     .from('trip_passengers')
@@ -79,7 +85,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
     breakInside: 'avoid',
   }
 
-  const PrintHeader = ({ title }: { title: string }) => (
+  const PrintHeader = ({ title, qrSvg: headerQrSvg }: { title: string; qrSvg?: string }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #14213D', paddingBottom: 8 }}>
       {/* جهة اليمين: معلومات الشركة */}
       <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'column' }}>
@@ -103,22 +109,58 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* جهة اليسار: صورة السائق */}
-      <div style={{ flex: '1 1 0%', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', gap: 16 }}>
-        <div style={{ textAlign: 'center' }}>
+      {/* جهة اليسار: رمز QR + صورة السائق جنباً إلى جنب */}
+      <div style={{ flex: '1 1 0%', display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-start', gap: 8 }}>
+
+        {/* رمز QR — يظهر فقط في صفحة العقد (Page 1) */}
+        {headerQrSvg && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <div
+              style={{
+                width: 70,
+                height: 70,
+                border: '2px solid #14213D',
+                borderRadius: 4,
+                overflow: 'hidden',
+                background: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+              dangerouslySetInnerHTML={{ __html: headerQrSvg }}
+            />
+            <div style={{
+              fontSize: 7,
+              color: '#7d333b',
+              fontWeight: 700,
+              fontFamily: 'monospace',
+              direction: 'rtl',
+              letterSpacing: 0.3,
+              textAlign: 'center',
+            }}>
+              امسح للتحقق
+            </div>
+          </div>
+        )}
+
+        {/* صورة السائق */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
           {driver?.photo_url ? (
-            <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
+            <div style={{ width: 70, height: 94, flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={getDriverPhotoUrl(driver.photo_url) as string} alt="السائق" fetchPriority="high" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
             </div>
           ) : (
-            <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 70, height: 94, flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
             </div>
           )}
-          <div style={{ fontSize: 10, color: '#7d333b', fontWeight: 700, marginTop: 4 }}>السائق</div>
+          <div style={{ fontSize: 8, color: '#7d333b', fontWeight: 700, textAlign: 'center' }}>السائق</div>
         </div>
+
       </div>
+
     </div>
   )
 
@@ -169,7 +211,8 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
           <div style={{ padding: '16px 24px', direction: 'rtl', height: '100%', display: 'flex', flexDirection: 'column', gap: 6, fontWeight: 600 }}>
 
             {/* الترويسة الموحدة */}
-            <PrintHeader title="عقد نقل على الطرق البرية" />
+            {/* تمرير qrSvg لصفحة العقد فقط — تظهر رمز QR في أعلى يسار الصفحة */}
+            <PrintHeader title="عقد نقل على الطرق البرية" qrSvg={qrSvg} />
 
             {/* التاريخ */}
             <div style={{ fontSize: 15, marginTop: 6 }}>
