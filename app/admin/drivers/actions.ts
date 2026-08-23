@@ -130,9 +130,14 @@ export async function createDriver(
       .from('vehicles')
       .insert({
         plate_number:        new_vehicle_plate,
-        vehicle_type:        new_vehicle_type?.trim()          || '',
-        registration_number: new_vehicle_registration?.trim()  || '',
-        registration_expiry: new_vehicle_expiry                || '',
+        // Use null (not '') for optional fields — registration_number and
+        // registration_expiry are nullable after migration 20260816000000.
+        // Sending '' to a DATE column causes Postgres error 22007 (invalid
+        // datetime format), which aborts the insert and rolls back the entire
+        // driver creation (including the auth user that was just created).
+        vehicle_type:        new_vehicle_type?.trim()         || null,
+        registration_number: new_vehicle_registration?.trim() || null,
+        registration_expiry: new_vehicle_expiry               || null,
       })
       .select()
       .single()

@@ -42,17 +42,17 @@ export interface Database {
         Insert: {
           id?: string
           plate_number: string
-          vehicle_type: string
-          registration_number: string
-          registration_expiry: string
+          vehicle_type?: string | null
+          registration_number?: string | null
+          registration_expiry?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           plate_number?: string
-          vehicle_type?: string
-          registration_number?: string
-          registration_expiry?: string
+          vehicle_type?: string | null
+          registration_number?: string | null
+          registration_expiry?: string | null
           created_at?: string
         }
         Relationships: []
