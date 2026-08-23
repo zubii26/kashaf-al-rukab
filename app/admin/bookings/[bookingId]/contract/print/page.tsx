@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import PrintButton from '@/app/driver/trips/[id]/print/print-button'
 import { getCompanySettings } from '@/lib/company-settings'
+import { getDriverPhotoUrl } from '@/lib/storage-url'
 
 const LEGAL_CLAUSE = `تم ابرام هذا العقد بين المتعاقدين بناء على المادة (39) التاسعة والثلاثون من اللائحة المنظمة لنشاط النقل المتخصص وتأجير وتوجيه الحافلات، وبناءا على الفقرة (1) من المادة (39) والتي تنص على أن يجب على الناقل ابرام عقد نقل مع الأطراف المحددين في المادة (40) قبل تنفيذ عمليات النقل على الطرق البرية وبما لا يخالف أحكام هذه اللائحة ووفقاً للآلية التي تحددها هيئة النقل`
 const CANCELLATION_POLICY = `في حال الغاء التعاقد لاي سبب شخصي او اسباب اخرى تتعلق في الحجوزات او الانظمه تكون سياسة الالغاء والاستبدال حسب نظام وزارة التجارة السعودي. في حالة الحجز وتم الالغاء قبل موعد الرحلة باكثر من 24 ساعة يتم استرداد المبلغ كامل. في حالة طلب الطرف الثاني الحجز من خلال الموقع الالكتروني للمؤسسه يعتبر هذا الحجز وموافقته على الشروط والاحكام بالموقع الالكتروني هو موافقة على هذا العقد لتنفيذ عملية النقل المتفق عليها مع الطرف الأول بواسطة حافلات المؤسسة المرخصة والمتوافقة مع الاشتراطات المقررة من هيئة النقل.`
@@ -32,12 +33,6 @@ export default async function PrintContractDocument({ params }: { params: Promis
   const trip = trips?.[0]
   const driver = trip?.drivers as any
 
-  // Helper to ensure backward compatibility with old database entries storing relative paths
-  const getResolvedImageUrl = (url: string | null) => {
-    if (!url) return null
-    if (url.startsWith('http')) return url
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/secure_uploads/${url}`
-  }
 
   const dateObj = new Date(contract.contract_date)
   // YYYY-MM-DD format to match the reference document design
@@ -88,7 +83,7 @@ export default async function PrintContractDocument({ params }: { params: Promis
                 {driver?.photo_url ? (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={getResolvedImageUrl(driver.photo_url) as string} alt="Driver" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+                    <img src={getDriverPhotoUrl(driver.photo_url) as string} alt="Driver" fetchPriority="high" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                   </div>
                 ) : (
                   <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

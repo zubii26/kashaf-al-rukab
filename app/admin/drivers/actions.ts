@@ -95,13 +95,19 @@ export async function createDriver(
   // 2. Upload Photo (if provided)
   let photo_url: string | null = null
   if (photo_file && photo_file.size > 0) {
-    const fileExt = photo_file.name.split('.').pop()
-    const fileName = `${userId}-${Math.random()}.${fileExt}`
-    const filePath = `drivers/${fileName}`
+    // Deterministic path: drivers/{auth_user_id}.jpeg
+    // Using a fixed path per driver means:
+    //   • Uploading a new photo auto-replaces the old one (upsert: true)
+    //   • Deletion is a direct path lookup — no URL string parsing needed
+    //   • No orphaned files accumulate in storage over time
+    const filePath = `drivers/${userId}.jpeg`
 
     const { error: uploadError, data } = await adminClient.storage
       .from('secure_uploads')
-      .upload(filePath, photo_file)
+      .upload(filePath, photo_file, {
+        contentType: 'image/jpeg',
+        upsert: true, // replaces existing file at same path
+      })
 
     if (uploadError) {
       console.error('Photo upload error (non-fatal):', uploadError)
@@ -210,30 +216,20 @@ export async function updateDriver(formData: FormData) {
   let new_photo_url: string | undefined = undefined
 
   if (photo_file && photo_file.size > 0 && driver?.auth_user_id) {
-    const fileExt = photo_file.name.split('.').pop()
-    const fileName = `${driver.auth_user_id}-${Math.random()}.${fileExt}`
-    const filePath = `drivers/${fileName}`
+    // Deterministic path: drivers/{auth_user_id}.jpeg
+    // upsert:true replaces the old photo automatically — no deletion step needed.
+    const filePath = `drivers/${driver.auth_user_id}.jpeg`
 
     const { error: uploadError, data } = await adminClient.storage
       .from('secure_uploads')
-      .upload(filePath, photo_file)
+      .upload(filePath, photo_file, {
+        contentType: 'image/jpeg',
+        upsert: true, // atomically replaces the previous photo at the same path
+      })
 
     if (!uploadError && data) {
       const { data: publicUrlData } = adminClient.storage.from('secure_uploads').getPublicUrl(data.path)
       new_photo_url = publicUrlData.publicUrl
-
-      // Try to delete the old photo if it exists
-      if (driver.photo_url) {
-        try {
-          const urlParts = driver.photo_url.split('/secure_uploads/')
-          if (urlParts.length === 2) {
-            const oldPath = urlParts[1]
-            await adminClient.storage.from('secure_uploads').remove([oldPath])
-          }
-        } catch (e) {
-          console.error('Failed to delete old photo:', e)
-        }
-      }
     }
   }
 
@@ -285,14 +281,13 @@ export async function deleteDriver(
     return { error: 'Driver not found.' }
   }
 
-  // Try to delete the photo from storage
-  if (driver.photo_url) {
+  // Delete the driver's photo from storage using the deterministic path.
+  // drivers/{auth_user_id}.jpeg — no URL parsing required.
+  if (driver.auth_user_id) {
     try {
-      const urlParts = driver.photo_url.split('/secure_uploads/')
-      if (urlParts.length === 2) {
-        const oldPath = urlParts[1]
-        await adminClient.storage.from('secure_uploads').remove([oldPath])
-      }
+      await adminClient.storage
+        .from('secure_uploads')
+        .remove([`drivers/${driver.auth_user_id}.jpeg`])
     } catch (e) {
       console.error('Failed to delete photo on driver deletion:', e)
     }

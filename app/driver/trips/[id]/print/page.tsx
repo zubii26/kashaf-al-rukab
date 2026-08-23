@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import PrintButton from './print-button'
 import { getCompanySettings } from '@/lib/company-settings'
+import { getDriverPhotoUrl } from '@/lib/storage-url'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
@@ -46,12 +47,6 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
   if (!trip) notFound()
 
-  // Helper to ensure backward compatibility with old database entries storing relative paths
-  const getResolvedImageUrl = (url: string | null) => {
-    if (!url) return null
-    if (url.startsWith('http')) return url
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/secure_uploads/${url}`
-  }
 
   const { data: tripPassengers } = await admin
     .from('trip_passengers')
@@ -114,7 +109,7 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
           {driver?.photo_url ? (
             <div style={{ width: '75px', height: '100px', flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={getResolvedImageUrl(driver.photo_url) as string} alt="السائق" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
+              <img src={getDriverPhotoUrl(driver.photo_url) as string} alt="السائق" fetchPriority="high" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
             </div>
           ) : (
             <div style={{ width: '75px', height: '100px', flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

@@ -40,14 +40,10 @@ export function ImageCropper({ onCropComplete, currentImage, aspectRatio = 3 / 4
   
   const imgRef = useRef<HTMLImageElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // Track the original filename to reuse it
-  const originalFileNameRef = useRef('cropped-image.jpg')
 
   const onSelectFile = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0]
-      originalFileNameRef.current = file.name
       setCrop(undefined) // Makes crop preview update between images.
       const reader = new FileReader()
       reader.addEventListener('load', () => {
@@ -69,35 +65,47 @@ export function ImageCropper({ onCropComplete, currentImage, aspectRatio = 3 / 4
     setIsProcessing(true)
     
     try {
-      const canvas = document.createElement('canvas')
       const scaleX = imgRef.current.naturalWidth / imgRef.current.width
       const scaleY = imgRef.current.naturalHeight / imgRef.current.height
-      canvas.width = completedCrop.width
-      canvas.height = completedCrop.height
+
+      // ── Performance cap ─────────────────────────────────────────────────────
+      // Cap output at 800×1067px (3:4 portrait at ~200 DPI for the 75×100px
+      // PDF box). Without a cap, a 4K source photo at devicePixelRatio=2 could
+      // produce an 8000×10666px canvas → 3–8 MB JPEG taking 5–15s to upload.
+      // At 800×1067px the file is 80–200 KB and prints sharply at all PDF sizes.
+      const MAX_WIDTH  = 800
+      const MAX_HEIGHT = 1067
+      const naturalW   = completedCrop.width  * scaleX
+      const naturalH   = completedCrop.height * scaleY
+      const scale      = Math.min(1, MAX_WIDTH / naturalW, MAX_HEIGHT / naturalH)
+      const outW       = Math.round(naturalW * scale)
+      const outH       = Math.round(naturalH * scale)
+      // ────────────────────────────────────────────────────────────────────────
+
+      const canvas = document.createElement('canvas')
+      canvas.width  = outW
+      canvas.height = outH
       const ctx = canvas.getContext('2d')
 
       if (!ctx) {
         throw new Error('No 2d context')
       }
 
-      const pixelRatio = window.devicePixelRatio
-      canvas.width = completedCrop.width * pixelRatio
-      canvas.height = completedCrop.height * pixelRatio
-      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       ctx.imageSmoothingQuality = 'high'
-
       ctx.drawImage(
         imgRef.current,
         completedCrop.x * scaleX,
         completedCrop.y * scaleY,
-        completedCrop.width * scaleX,
-        completedCrop.height * scaleY,
+        naturalW,
+        naturalH,
         0,
         0,
-        completedCrop.width,
-        completedCrop.height
+        outW,
+        outH
       )
 
+      // Quality 0.82 = ~30-40% smaller than 0.95 with no visible difference
+      // at the 75×100px render size used in PDF print headers.
       canvas.toBlob((blob) => {
         if (!blob) {
           console.error('Canvas is empty')
@@ -105,13 +113,8 @@ export function ImageCropper({ onCropComplete, currentImage, aspectRatio = 3 / 4
           return
         }
         
-        // Ensure we always have a proper extension
-        let fileName = originalFileNameRef.current
-        if (!fileName.match(/\.(jpg|jpeg|png|webp)$/i)) {
-           fileName = fileName + '.jpg'
-        }
-        
-        const file = new File([blob], fileName, { type: 'image/jpeg' })
+        // Always output as JPEG regardless of source format
+        const file = new File([blob], 'driver-photo.jpeg', { type: 'image/jpeg' })
         
         // Pass the cropped file up to the parent component
         onCropComplete(file)
@@ -119,7 +122,7 @@ export function ImageCropper({ onCropComplete, currentImage, aspectRatio = 3 / 4
         // Close modal
         setIsModalOpen(false)
         setIsProcessing(false)
-      }, 'image/jpeg', 0.95)
+      }, 'image/jpeg', 0.82)
     } catch (e) {
       console.error('Failed to crop image', e)
       setIsProcessing(false)
@@ -133,6 +136,7 @@ export function ImageCropper({ onCropComplete, currentImage, aspectRatio = 3 / 4
           <img 
             src={currentImage} 
             alt="Current" 
+            loading="lazy"
             className="w-24 h-32 object-cover border-2 border-border rounded-md shadow-sm" 
           />
         </div>
