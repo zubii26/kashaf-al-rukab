@@ -1,18 +1,47 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCompanySettings } from '@/lib/company-settings'
+import { getCompanyAssetUrl } from '@/lib/storage-url'
 import { notFound } from 'next/navigation'
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; dot: string }> = {
+  scheduled: { label: 'Scheduled',  bg: '#DCFCE7', dot: '#16A34A' },
+  completed:  { label: 'Completed',  bg: '#DBEAFE', dot: '#2563EB' },
+  cancelled:  { label: 'Cancelled',  bg: '#FEE2E2', dot: '#DC2626' },
+}
+
+function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid #F0F2F5' }}>
+      <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+      <span style={{ fontSize: 14, color: '#111827', fontWeight: 700, textAlign: 'right', fontFamily: mono ? 'monospace' : 'inherit', maxWidth: '60%', textTransform: 'capitalize' }}>{value}</span>
+    </div>
+  )
+}
+
+function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: '#7d333b', textTransform: 'uppercase', letterSpacing: '1.2px' }}>{title}</span>
+    </div>
+  )
+}
 
 export default async function TripVerifyPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = createAdminClient()
   const { id } = await params
 
-  // Public read — admin client, read-only, no sensitive data exposed
-  const { data: trip } = await admin
-    .from('trips')
-    .select('trip_number, pickup_location, dropoff_location, trip_date, trip_time, status, drivers(full_name, nationality), vehicles(vehicle_type, plate_number)')
-    .eq('id', id)
-    .single()
+  const [tripResult, company] = await Promise.all([
+    admin
+      .from('trips')
+      .select('trip_number, pickup_location, dropoff_location, trip_date, trip_time, status, drivers(full_name, nationality), vehicles(vehicle_type, plate_number)')
+      .eq('id', id)
+      .single(),
+    getCompanySettings(),
+  ])
 
-  if (!trip) notFound()
+  if (!tripResult.data) notFound()
+  const trip = tripResult.data as any
 
   const { data: tripPassengers } = await admin
     .from('trip_passengers')
@@ -20,99 +49,116 @@ export default async function TripVerifyPage({ params }: { params: Promise<{ id:
     .eq('trip_id', id)
     .order('seq_number', { ascending: true })
 
-  const passengers = (tripPassengers || [])
-    .map((tp: any) => tp.passengers)
-    .filter(Boolean)
+  const passengers = (tripPassengers || []).map((tp: any) => tp.passengers).filter(Boolean)
 
-  const dateObj = new Date((trip as any).trip_date)
-  const formattedDate = dateObj.toLocaleDateString('en-GB')
+  const dateObj   = new Date(trip.trip_date)
+  const formatted = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
   const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' })
 
-  const driver = (trip as any).drivers
-  const vehicle = (trip as any).vehicles
+  const driver  = trip.drivers
+  const vehicle = trip.vehicles
+
+  const status = STATUS_CONFIG[trip.status] ?? { label: trip.status, bg: '#F3F4F6', dot: '#6B7280' }
+  const logoUrl = getCompanyAssetUrl(company.logo_url)
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', background: '#F7F9FC', minHeight: '100vh', padding: '24px 16px' }}>
-      <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+    <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: 'linear-gradient(160deg, #0f1f3d 0%, #1a3560 40%, #7d333b 100%)', minHeight: '100vh', padding: '24px 16px 40px' }}>
+      <div style={{ maxWidth: '460px', margin: '0 auto' }}>
 
-        {/* Header */}
-        <div style={{ background: '#14213D', color: 'white', borderRadius: '12px 12px 0 0', padding: '20px 24px', textAlign: 'center' }}>
-          <p style={{ fontSize: '11px', letterSpacing: '2px', color: '#9CA3AF', marginBottom: '4px', textTransform: 'uppercase' }}>Official Trip Verification</p>
-          <h1 style={{ fontSize: '24px', fontWeight: 900, margin: 0 }}>Trip #{(trip as any).trip_number}</h1>
-          <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '4px' }}>مؤسسة ماهر السفر للنقل</p>
+        {/* ── Company Header Card ── */}
+        <div style={{ background: 'white', borderRadius: '16px 16px 0 0', padding: '24px 20px 16px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
+
+          {/* Logo */}
+          {logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Company Logo" style={{ height: 72, objectFit: 'contain', marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
+          )}
+
+          {/* Company Name */}
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#7d333b', lineHeight: 1.2 }}>{company.name_ar}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#4B5563', marginTop: 2 }}>{company.name_en}</div>
+
+          {/* Company Details Pills */}
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+            <span style={{ background: '#F7F9FC', border: '1px solid #E2E6EC', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: '#374151', fontWeight: 600 }}>
+              C.R: {company.cr_number}
+            </span>
+            <span style={{ background: '#F7F9FC', border: '1px solid #E2E6EC', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: '#374151', fontWeight: 600 }}>
+              Lic: {company.license_number}
+            </span>
+            {company.contact_phone && (
+              <span style={{ background: '#F7F9FC', border: '1px solid #E2E6EC', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: '#374151', fontWeight: 600 }}>
+                📞 {company.contact_phone}
+              </span>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #E2E6EC, transparent)', margin: '16px 0 0' }} />
         </div>
 
-        {/* Status Banner */}
-        <div style={{
-          background: (trip as any).status === 'scheduled' ? '#1E824C' : '#2B6CB0',
-          color: 'white', padding: '10px 24px', textAlign: 'center', fontSize: '13px', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase'
-        }}>
-          ● {(trip as any).status}
+        {/* ── Verified Badge + Trip Number ── */}
+        <div style={{ background: '#14213D', padding: '18px 20px', textAlign: 'center' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '4px 14px', marginBottom: 10 }}>
+            <span style={{ fontSize: 13 }}>🛡️</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#93C5FD', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Official Trip Verification</span>
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: 'white', letterSpacing: '-0.5px' }}>Trip #{trip.trip_number}</div>
         </div>
 
-        {/* Trip Info */}
-        <div style={{ background: 'white', border: '1px solid #E2E6EC', padding: '20px 24px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '8px 0', color: '#6B7280', fontWeight: 600, width: '40%' }}>Date</td>
-                <td style={{ padding: '8px 0', color: '#1F2430', fontWeight: 700 }}>{formattedDate} — {dayOfWeek}</td>
-              </tr>
-              <tr style={{ borderTop: '1px solid #E2E6EC' }}>
-                <td style={{ padding: '8px 0', color: '#6B7280', fontWeight: 600 }}>Time</td>
-                <td style={{ padding: '8px 0', color: '#1F2430', fontWeight: 700 }}>{(trip as any).trip_time || '—'}</td>
-              </tr>
-              <tr style={{ borderTop: '1px solid #E2E6EC' }}>
-                <td style={{ padding: '8px 0', color: '#6B7280', fontWeight: 600 }}>From</td>
-                <td style={{ padding: '8px 0', color: '#1F2430', fontWeight: 700, textTransform: 'capitalize' }}>{(trip as any).pickup_location}</td>
-              </tr>
-              <tr style={{ borderTop: '1px solid #E2E6EC' }}>
-                <td style={{ padding: '8px 0', color: '#6B7280', fontWeight: 600 }}>To</td>
-                <td style={{ padding: '8px 0', color: '#1F2430', fontWeight: 700, textTransform: 'capitalize' }}>{(trip as any).dropoff_location}</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* ── Status Banner ── */}
+        <div style={{ background: status.bg, padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: status.dot, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, fontWeight: 800, color: status.dot, textTransform: 'uppercase', letterSpacing: '1px' }}>{status.label}</span>
         </div>
 
-        {/* Driver & Vehicle */}
-        <div style={{ background: 'white', border: '1px solid #E2E6EC', borderTop: 'none', padding: '16px 24px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Driver & Vehicle</p>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: '6px 0', color: '#6B7280', fontWeight: 600, width: '40%' }}>Driver</td>
-                <td style={{ padding: '6px 0', color: '#1F2430', fontWeight: 700, textTransform: 'capitalize' }}>{driver?.full_name || '—'}</td>
-              </tr>
-              <tr style={{ borderTop: '1px solid #E2E6EC' }}>
-                <td style={{ padding: '6px 0', color: '#6B7280', fontWeight: 600 }}>Vehicle</td>
-                <td style={{ padding: '6px 0', color: '#1F2430', fontWeight: 700, textTransform: 'uppercase' }}>{vehicle?.vehicle_type || '—'}</td>
-              </tr>
-              <tr style={{ borderTop: '1px solid #E2E6EC' }}>
-                <td style={{ padding: '6px 0', color: '#6B7280', fontWeight: 600 }}>Plate No.</td>
-                <td style={{ padding: '6px 0', color: '#1F2430', fontWeight: 700, fontFamily: 'monospace' }}>{vehicle?.plate_number || '—'}</td>
-              </tr>
-            </tbody>
-          </table>
+        {/* ── Trip Details ── */}
+        <div style={{ background: 'white', padding: '4px 20px 0', boxShadow: '0 1px 0 #F0F2F5' }}>
+          <div style={{ paddingTop: 14, paddingBottom: 2 }}>
+            <SectionHeader title="Trip Details" icon="🗺️" />
+          </div>
+          <InfoRow label="Date"    value={`${formatted} — ${dayOfWeek}`} />
+          <InfoRow label="Time"    value={trip.trip_time || '—'} />
+          <InfoRow label="From"    value={trip.pickup_location} />
+          <InfoRow label="To"      value={trip.dropoff_location} />
+          <div style={{ paddingBottom: 8 }} />
         </div>
 
-        {/* Passengers */}
-        <div style={{ background: 'white', border: '1px solid #E2E6EC', borderTop: 'none', padding: '16px 24px' }}>
-          <p style={{ fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
-            Passengers ({passengers.length})
-          </p>
+        {/* ── Driver & Vehicle ── */}
+        <div style={{ background: 'white', padding: '4px 20px 0', marginTop: 2, boxShadow: '0 1px 0 #F0F2F5' }}>
+          <div style={{ paddingTop: 14, paddingBottom: 2 }}>
+            <SectionHeader title="Driver & Vehicle" icon="🚌" />
+          </div>
+          <InfoRow label="Driver"      value={driver?.full_name || '—'} />
+          <InfoRow label="Nationality" value={driver?.nationality || '—'} />
+          <InfoRow label="Vehicle"     value={vehicle?.vehicle_type || '—'} />
+          <InfoRow label="Plate No."   value={vehicle?.plate_number || '—'} mono />
+          <div style={{ paddingBottom: 8 }} />
+        </div>
+
+        {/* ── Passengers ── */}
+        <div style={{ background: 'white', padding: '4px 20px 0', marginTop: 2 }}>
+          <div style={{ paddingTop: 14, paddingBottom: 2 }}>
+            <SectionHeader title={`Passengers (${passengers.length})`} icon="👥" />
+          </div>
           {passengers.length === 0 ? (
-            <p style={{ color: '#6B7280', fontSize: '13px', fontStyle: 'italic' }}>No passengers registered</p>
+            <p style={{ color: '#9CA3AF', fontSize: 13, fontStyle: 'italic', padding: '8px 0 12px' }}>No passengers registered for this trip.</p>
           ) : (
-            <div>
+            <div style={{ paddingBottom: 8 }}>
               {passengers.map((p: any, idx: number) => (
                 <div key={idx} style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '8px 0', borderTop: idx > 0 ? '1px solid #E2E6EC' : 'none'
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 0', borderBottom: idx < passengers.length - 1 ? '1px solid #F0F2F5' : 'none'
                 }}>
-                  <span style={{ width: '24px', height: '24px', background: '#14213D', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>{idx + 1}</span>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #14213D, #7d333b)',
+                    color: 'white', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0
+                  }}>{idx + 1}</div>
                   <div>
-                    <p style={{ margin: 0, fontWeight: 700, color: '#1F2430', fontSize: '14px', textTransform: 'capitalize' }}>{p.full_name}</p>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#6B7280', textTransform: 'capitalize' }}>{p.nationality}</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: '#111827', fontSize: 14, textTransform: 'capitalize' }}>{p.full_name}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#6B7280', textTransform: 'capitalize' }}>{p.nationality}</p>
                   </div>
                 </div>
               ))}
@@ -120,10 +166,14 @@ export default async function TripVerifyPage({ params }: { params: Promise<{ id:
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ background: '#14213D', color: '#9CA3AF', borderRadius: '0 0 12px 12px', padding: '14px 24px', textAlign: 'center', fontSize: '11px' }}>
-          <p style={{ margin: 0 }}>This document is auto-generated by مؤسسة ماهر السفر للنقل — Maher Al Safar Transport System</p>
-          <p style={{ margin: '4px 0 0', color: '#6B7280', fontFamily: 'monospace' }}>ID: {id.substring(0, 16).toUpperCase()}</p>
+        {/* ── Footer ── */}
+        <div style={{ background: '#14213D', borderRadius: '0 0 16px 16px', padding: '16px 20px', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
+          <p style={{ margin: 0, fontSize: 11, color: '#9CA3AF' }}>
+            Verified document issued by {company.name_en}
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: 10, color: '#4B5563', fontFamily: 'monospace', letterSpacing: '1px' }}>
+            TRIP · {id.substring(0, 8).toUpperCase()}···{id.substring(id.length - 4).toUpperCase()}
+          </p>
         </div>
 
       </div>
