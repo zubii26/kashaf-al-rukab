@@ -1,6 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCompanySettings } from '@/lib/company-settings'
-import { getCompanyAssetUrl } from '@/lib/storage-url'
 import { notFound } from 'next/navigation'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; dot: string }> = {
@@ -59,7 +58,9 @@ export default async function TripVerifyPage({ params }: { params: Promise<{ id:
   const vehicle = trip.vehicles
 
   const status = STATUS_CONFIG[trip.status] ?? { label: trip.status, bg: '#F3F4F6', dot: '#6B7280' }
-  const logoUrl = getCompanyAssetUrl(company.logo_url)
+  // Use logo_url directly — it may be a /public path (/logo.jpeg) or a full Supabase https:// URL.
+  // getCompanyAssetUrl() only handles Supabase storage paths, so we bypass it here.
+  const logoUrl = company.logo_url || null
 
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: 'linear-gradient(160deg, #0f1f3d 0%, #1a3560 40%, #7d333b 100%)', minHeight: '100vh', padding: '24px 16px 40px' }}>
