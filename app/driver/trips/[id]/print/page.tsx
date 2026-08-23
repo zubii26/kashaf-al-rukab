@@ -5,9 +5,7 @@ import { notFound } from 'next/navigation'
 import PrintButton from './print-button'
 import { getCompanySettings } from '@/lib/company-settings'
 import { getDriverPhotoUrl } from '@/lib/storage-url'
-import { generateQRSvg } from '@/lib/qr'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+import { generateQRSvg, getVerifyUrl } from '@/lib/qr'
 
 const LEGAL_CLAUSE = `تم ابرام هذا العقد بين المتعاقدين بناءً على المادة (39) من اللائحة المنظمة لنشاط النقل المتخصص وتأجير وتوجيه الحافلات، والتي تنص على وجوب إبرام عقد نقل مع الأطراف المحددين في المادة (40) قبل تنفيذ عمليات النقل على الطرق البرية وفقاً للآلية التي تحددها هيئة النقل.`
 const CANCELLATION_POLICY = `سياسة الإلغاء: في حال الإلغاء قبل موعد الرحلة بأكثر من 24 ساعة يتم استرداد المبلغ كاملاً. الحجز عبر الموقع الإلكتروني والموافقة على الشروط والأحكام يُعدّ موافقةً على هذا العقد.`
@@ -48,10 +46,9 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
 
   if (!trip) notFound()
 
-  // Generate QR code server-side — encodes the public verify URL for this trip.
-  // The /verify/[id] page is unauthenticated and shows the full trip record.
-  const verifyUrl = `${APP_URL}/verify/${id}`
-  const qrSvg = await generateQRSvg(verifyUrl)
+  // Generate QR code server-side — uses getVerifyUrl() which resolves the correct
+  // production URL (NEXT_PUBLIC_APP_URL → VERCEL_URL → localhost fallback).
+  const qrSvg = await generateQRSvg(getVerifyUrl(id))
 
 
   const { data: tripPassengers } = await admin
@@ -117,8 +114,8 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
             <div
               style={{
-                width: 70,
-                height: 70,
+                width: 90,
+                height: 90,
                 border: '2px solid #14213D',
                 borderRadius: 4,
                 overflow: 'hidden',
@@ -144,15 +141,15 @@ export default async function PrintAllDocuments({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {/* صورة السائق */}
+        {/* صورة السائق — 90×90 لتتطابق مع رمز QR */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
           {driver?.photo_url ? (
-            <div style={{ width: 70, height: 94, flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
+            <div style={{ width: 90, height: 90, flexShrink: 0, overflow: 'hidden', border: '2px solid #14213D', borderRadius: '4px', backgroundColor: '#F7F9FC' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={getDriverPhotoUrl(driver.photo_url) as string} alt="السائق" fetchPriority="high" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
             </div>
           ) : (
-            <div style={{ width: 70, height: 94, flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 90, height: 90, flexShrink: 0, border: '2px dashed #E2E6EC', borderRadius: '4px', backgroundColor: '#F7F9FC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>صورة<br/>السائق</span>
             </div>
           )}
